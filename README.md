@@ -466,7 +466,7 @@ php artisan serve
 This project includes a migration workflow at:
 
 ```text
-../.github/workflows/laravel-migrations.yml
+.github/workflows/laravel-migrations.yml
 ```
 
 The workflow runs Laravel migrations from the `api-calender` folder.

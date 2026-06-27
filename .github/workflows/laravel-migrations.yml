@@ -1,0 +1,130 @@
+name: Laravel Database Migrations
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub environment that stores the database secrets
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - staging
+      pretend:
+        description: Preview SQL without running migrations
+        required: true
+        default: false
+        type: boolean
+  push:
+    branches:
+      - main
+    paths:
+      - api-calender/database/migrations/**
+      - api-calender/composer.lock
+      - .github/workflows/laravel-migrations.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: laravel-migrations-${{ github.event.inputs.environment || 'production' }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: api-calender
+
+jobs:
+  migrate:
+    name: Run Laravel migrations
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'production' }}
+    timeout-minutes: 15
+
+    env:
+      APP_KEY: ${{ secrets.APP_KEY }}
+      APP_URL: ${{ vars.APP_URL || 'http://localhost' }}
+      APP_TIMEZONE: ${{ vars.APP_TIMEZONE || 'Asia/Phnom_Penh' }}
+      DB_CONNECTION: ${{ secrets.DB_CONNECTION || 'mysql' }}
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: ${{ secrets.DB_PORT || '3306' }}
+      DB_DATABASE: ${{ secrets.DB_DATABASE }}
+      DB_USERNAME: ${{ secrets.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: bcmath, ctype, curl, dom, fileinfo, mbstring, openssl, pdo, pdo_mysql, tokenizer, xml
+          coverage: none
+
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          missing=0
+
+          for name in APP_KEY DB_HOST DB_DATABASE DB_USERNAME; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing required secret: $name"
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Install Composer dependencies
+        run: composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+
+      - name: Create CI environment file
+        shell: bash
+        run: |
+          cat > .env <<EOF
+          APP_NAME="Khmer Calendar API"
+          APP_ENV=production
+          APP_KEY=${APP_KEY}
+          APP_DEBUG=false
+          APP_URL=${APP_URL}
+          APP_TIMEZONE=${APP_TIMEZONE}
+          APP_LOCALE=en
+          APP_FALLBACK_LOCALE=en
+          APP_FAKER_LOCALE=en_US
+
+          LOG_CHANNEL=stderr
+          CACHE_STORE=array
+          SESSION_DRIVER=array
+          QUEUE_CONNECTION=sync
+
+          DB_CONNECTION=${DB_CONNECTION}
+          DB_HOST=${DB_HOST}
+          DB_PORT=${DB_PORT}
+          DB_DATABASE=${DB_DATABASE}
+          DB_USERNAME=${DB_USERNAME}
+          DB_PASSWORD=${DB_PASSWORD}
+          EOF
+
+      - name: Clear Laravel caches
+        run: php artisan config:clear --ansi
+
+      - name: Show migration status before run
+        run: php artisan migrate:status --ansi
+
+      - name: Run migrations
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.pretend }}" = "true" ]; then
+            php artisan migrate --force --pretend --ansi
+          else
+            php artisan migrate --force --ansi
+          fi
+
+      - name: Show migration status after run
+        if: ${{ always() }}
+        run: php artisan migrate:status --ansi
