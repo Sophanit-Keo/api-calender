@@ -469,7 +469,7 @@ This project includes a migration workflow at:
 .github/workflows/laravel-migrations.yml
 ```
 
-The workflow runs Laravel migrations from the `api-calender` folder.
+The workflow runs Laravel migrations from the repository root.
 
 It can run in two ways:
 
