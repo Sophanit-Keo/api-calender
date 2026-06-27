@@ -537,13 +537,13 @@ Recommended values for TiDB Cloud:
 APP_ENV=production
 APP_DEBUG=false
 APP_TIMEZONE=Asia/Phnom_Penh
-APP_API_PREFIX=
+APP_API_PREFIX=none
 DB_CONNECTION=mysql
 DB_PORT=4000
 MYSQL_ATTR_SSL_CA=/etc/ssl/certs/ca-certificates.crt
 ```
 
-`APP_API_PREFIX` should be empty on Vercel because Vercel reserves `/api` for serverless functions. Public API URLs still use `/api/v1/...`; Laravel receives them internally as `/v1/...`.
+`APP_API_PREFIX` should be `none` on Vercel because Vercel reserves `/api` for serverless functions. Public API URLs still use `/api/v1/...`; Laravel receives them internally as `/v1/...`.
 
 Generate `APP_KEY` locally if needed:
 

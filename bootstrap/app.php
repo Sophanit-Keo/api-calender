@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 
 $apiPrefix = getenv('APP_API_PREFIX');
 $apiPrefix = $apiPrefix === false ? 'api' : $apiPrefix;
+$apiPrefix = in_array($apiPrefix, ['none', 'null', '/'], true) ? '' : $apiPrefix;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
