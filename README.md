@@ -473,6 +473,87 @@ php artisan test
 php artisan serve
 ```
 
+## Deploy To Vercel
+
+This project includes Vercel configuration for a Laravel API:
+
+```text
+vercel.json
+api/index.php
+.vercelignore
+```
+
+The `vercel.json` file fixes the common Vercel error:
+
+```text
+No Output Directory named "dist" found after the Build completed.
+```
+
+Laravel does not build to `dist`. This API uses:
+
+```json
+{
+  "outputDirectory": "public"
+}
+```
+
+### Vercel Project Settings
+
+In Vercel, configure the project like this:
+
+```text
+Framework Preset: Other
+Build Command: npm run build
+Output Directory: public
+Install Command: npm install
+```
+
+The repository root should be the Laravel app root, where `artisan`, `composer.json`, and `vercel.json` exist.
+
+### Required Vercel Environment Variables
+
+Add these in:
+
+```text
+Vercel Project -> Settings -> Environment Variables
+```
+
+Required:
+
+```text
+APP_KEY
+APP_URL
+DB_CONNECTION
+DB_HOST
+DB_PORT
+DB_DATABASE
+DB_USERNAME
+DB_PASSWORD
+```
+
+Recommended values for TiDB Cloud:
+
+```text
+APP_ENV=production
+APP_DEBUG=false
+APP_TIMEZONE=Asia/Phnom_Penh
+DB_CONNECTION=mysql
+DB_PORT=4000
+MYSQL_ATTR_SSL_CA=/etc/ssl/certs/ca-certificates.crt
+```
+
+Generate `APP_KEY` locally if needed:
+
+```bash
+php artisan key:generate --show
+```
+
+### Notes For Vercel
+
+- Do not commit `.env`.
+- Do not run migrations during the Vercel build. Use the GitHub Actions migration workflow or run `php artisan migrate --force` locally/server-side.
+- Vercel serverless functions have a read-only filesystem, so cache/view paths are configured to `/tmp` in `vercel.json`.
+
 ## GitHub Actions: Automatic Migrations
 
 This project includes a migration workflow at:
