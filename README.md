@@ -31,6 +31,18 @@ DB_PASSWORD=
 APP_TIMEZONE=Asia/Phnom_Penh
 ```
 
+For TiDB Cloud or another MySQL provider that requires TLS, also set:
+
+```env
+MYSQL_ATTR_SSL_CA=C:\laragon\etc\ssl\cacert.pem
+```
+
+On GitHub Actions or Ubuntu servers, use:
+
+```env
+MYSQL_ATTR_SSL_CA=/etc/ssl/certs/ca-certificates.crt
+```
+
 Run migrations:
 
 ```bash
@@ -499,6 +511,7 @@ Optional secrets:
 ```text
 DB_CONNECTION
 DB_PORT
+MYSQL_ATTR_SSL_CA
 ```
 
 Recommended values:
@@ -506,6 +519,7 @@ Recommended values:
 ```text
 DB_CONNECTION=mysql
 DB_PORT=3306
+MYSQL_ATTR_SSL_CA=/etc/ssl/certs/ca-certificates.crt
 ```
 
 You can also create a `staging` environment with different database secrets.
