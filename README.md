@@ -460,3 +460,84 @@ php artisan route:list --path=api/v1
 php artisan test
 php artisan serve
 ```
+
+## GitHub Actions: Automatic Migrations
+
+This project includes a migration workflow at:
+
+```text
+../.github/workflows/laravel-migrations.yml
+```
+
+The workflow runs Laravel migrations from the `api-calender` folder.
+
+It can run in two ways:
+
+- Automatically on pushes to `main` when migration files, `composer.lock`, or the workflow file changes.
+- Manually from GitHub Actions with an optional dry-run mode.
+
+### Required GitHub Secrets
+
+In your GitHub repository, open:
+
+```text
+Settings -> Environments -> production -> Environment secrets
+```
+
+Create these secrets:
+
+```text
+APP_KEY
+DB_HOST
+DB_DATABASE
+DB_USERNAME
+DB_PASSWORD
+```
+
+Optional secrets:
+
+```text
+DB_CONNECTION
+DB_PORT
+```
+
+Recommended values:
+
+```text
+DB_CONNECTION=mysql
+DB_PORT=3306
+```
+
+You can also create a `staging` environment with different database secrets.
+
+### Optional GitHub Variables
+
+In the same environment, you may add these variables:
+
+```text
+APP_URL
+APP_TIMEZONE
+```
+
+Default timezone is:
+
+```text
+Asia/Phnom_Penh
+```
+
+### Run Migrations Manually
+
+1. Go to the GitHub repository.
+2. Open the `Actions` tab.
+3. Select `Laravel Database Migrations`.
+4. Click `Run workflow`.
+5. Choose `production` or `staging`.
+6. Set `pretend`:
+   - `true`: preview SQL only.
+   - `false`: run migrations.
+
+### Important Notes
+
+- The production database must be reachable from a GitHub-hosted runner.
+- If your database is only available from your server or local machine, use a self-hosted runner or run migrations on the server over SSH instead.
+- Keep GitHub environment protection enabled for production so migrations require manual approval.
