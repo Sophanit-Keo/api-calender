@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CalendarEvent extends Model
 {
@@ -12,6 +13,7 @@ class CalendarEvent extends Model
     protected $table = 'events';
 
     protected $fillable = [
+        'user_id',
         'title',
         'description',
         'starts_at',
@@ -30,5 +32,10 @@ class CalendarEvent extends Model
             'all_day' => 'boolean',
             'reminder_minutes_before' => 'integer',
         ];
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

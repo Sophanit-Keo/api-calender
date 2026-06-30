@@ -11,6 +11,7 @@ class WorkScheduleDay extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'work_schedule_cycle_id',
         'work_date',
         'day_offset',
@@ -33,5 +34,10 @@ class WorkScheduleDay extends Model
     public function shiftTemplate(): BelongsTo
     {
         return $this->belongsTo(WorkShiftTemplate::class, 'work_shift_template_id');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

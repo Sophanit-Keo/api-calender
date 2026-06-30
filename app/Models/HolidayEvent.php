@@ -4,12 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class HolidayEvent extends Model
 {
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'name_km',
         'name_en',
         'date',
@@ -30,5 +32,10 @@ class HolidayEvent extends Model
             'is_fixed' => 'boolean',
             'is_recurring_yearly' => 'boolean',
         ];
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

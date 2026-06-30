@@ -43,7 +43,7 @@ class CalendarController extends Controller
         $date = CarbonImmutable::parse($validated['date'], config('app.timezone'))->startOfDay();
 
         return response()->json([
-            'data' => $this->dayPayload($date),
+            'data' => $this->dayPayload($request->user()->id, $date),
         ]);
     }
 
@@ -55,10 +55,10 @@ class CalendarController extends Controller
         ]);
 
         $days = collect($this->khmerCalendar->getGregorianMonthDays((int) $validated['year'], (int) $validated['month']))
-            ->map(function (array $calendarDay): array {
+            ->map(function (array $calendarDay) use ($request): array {
                 $date = CarbonImmutable::parse($calendarDay['date'], config('app.timezone'))->startOfDay();
 
-                return $this->dayPayload($date, $calendarDay);
+                return $this->dayPayload($request->user()->id, $date, $calendarDay);
             })
             ->values();
 
@@ -71,29 +71,31 @@ class CalendarController extends Controller
         ]);
     }
 
-    private function dayPayload(CarbonImmutable $date, ?array $calendar = null): array
+    private function dayPayload(int $userId, CarbonImmutable $date, ?array $calendar = null): array
     {
         return [
             'calendar' => $calendar ?? $this->khmerCalendar->getKhmerDate($date),
             'notes' => Note::query()
+                ->where('user_id', $userId)
                 ->whereDate('date', $date->toDateString())
                 ->orderBy('created_at')
                 ->get()
                 ->map(fn (Note $note): array => $this->formatNote($note))
                 ->values(),
-            'events' => $this->eventsForDate($date),
-            'holiday_events' => $this->holidayEventsForDate($date),
-            'work_shift' => $this->workSchedule->materializeDays($date, $date)[0] ?? null,
+            'events' => $this->eventsForDate($userId, $date),
+            'holiday_events' => $this->holidayEventsForDate($userId, $date),
+            'work_shift' => $this->workSchedule->materializeDays($userId, $date, $date)[0] ?? null,
         ];
     }
 
     /** @return array<int, array<string, mixed>> */
-    private function eventsForDate(CarbonImmutable $date): array
+    private function eventsForDate(int $userId, CarbonImmutable $date): array
     {
         $from = $date->startOfDay();
         $to = $date->endOfDay();
 
         return CalendarEvent::query()
+            ->where('user_id', $userId)
             ->where('starts_at', '<=', $to)
             ->where(function (Builder $query) use ($from): void {
                 $query->whereNull('ends_at')
@@ -107,9 +109,10 @@ class CalendarController extends Controller
     }
 
     /** @return array<int, array<string, mixed>> */
-    private function holidayEventsForDate(CarbonImmutable $date): array
+    private function holidayEventsForDate(int $userId, CarbonImmutable $date): array
     {
         return HolidayEvent::query()
+            ->where('user_id', $userId)
             ->orderBy('date')
             ->get()
             ->filter(fn (HolidayEvent $holiday): bool => $this->holidayOccursOn($holiday, $date))

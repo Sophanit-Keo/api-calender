@@ -1,6 +1,6 @@
 # Khmer Calendar API
 
-A public Laravel JSON API for Khmer calendar data, notes, normal events, holiday events, and 26th-to-25th work schedules.
+A Laravel JSON API for Khmer calendar data, notes, normal events, holiday events, and 26th-to-25th work schedules.
 
 The API includes a PHP port of the Khmer lunar calendar logic from `Jeng12/Khmer_Calender_GL`, so clients can request Gregorian dates and receive Khmer lunar date information, Buddhist Era, zodiac, moon phase, built-in holiday names, and auspicious-day markers.
 
@@ -69,13 +69,49 @@ php artisan test
 
 ## API Rules
 
-- No authentication is required.
+- Register or log in to get a bearer token before calling API endpoints.
+- Send protected requests with `Authorization: Bearer <token>`.
 - All requests and responses are JSON.
 - Dates use `YYYY-MM-DD`.
 - Date-times can use `YYYY-MM-DD HH:mm:ss` or ISO 8601.
 - App timezone defaults to `Asia/Phnom_Penh`.
 - Validation errors return HTTP `422`.
+- Missing or invalid tokens return HTTP `401`.
 - Delete endpoints return HTTP `204`.
+
+## Authentication
+
+### Register
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/auth/register" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\":\"Student\",\"email\":\"student@example.com\",\"password\":\"password123\",\"device_name\":\"laptop\"}"
+```
+
+### Login
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/auth/login" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"student@example.com\",\"password\":\"password123\"}"
+```
+
+Both endpoints return `data.token`. Use it on every protected request:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/notes" \
+  -H "Authorization: Bearer <token>"
+```
+
+### Current User And Logout
+
+```http
+GET /api/v1/auth/me
+POST /api/v1/auth/logout
+```
+
+All saved notes, events, holiday events, and work schedule records are scoped to the authenticated user.
 
 ## Calendar Endpoints
 

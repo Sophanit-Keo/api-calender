@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -47,4 +48,13 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+function authHeaders(?User $user = null): array
+{
+    $user ??= User::factory()->create();
+
+    return [
+        'Authorization' => 'Bearer '.$user->createApiToken('test'),
+    ];
 }

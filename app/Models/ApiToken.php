@@ -2,24 +2,25 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Note extends Model
+class ApiToken extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
-        'user_id',
-        'date',
-        'text',
+        'name',
+        'token_hash',
+        'last_used_at',
+    ];
+
+    protected $hidden = [
+        'token_hash',
     ];
 
     protected function casts(): array
     {
         return [
-            'date' => 'date:Y-m-d',
+            'last_used_at' => 'datetime',
         ];
     }
 

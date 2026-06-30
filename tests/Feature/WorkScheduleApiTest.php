@@ -1,6 +1,10 @@
 <?php
 
+use App\Models\User;
+
 it('returns and updates work schedule settings with shift templates', function (): void {
+    $this->withHeaders(authHeaders());
+
     $this->getJson('/api/v1/work-schedule/settings')
         ->assertOk()
         ->assertJsonPath('data.settings.system_type', 2)
@@ -23,6 +27,8 @@ it('returns and updates work schedule settings with shift templates', function (
 });
 
 it('saves 26th anchored cycles and materializes blocked overnight work days', function (): void {
+    $this->withHeaders(authHeaders());
+
     $assignments = array_fill(0, 31, null);
     $assignments[0] = 'night';
     $assignments[1] = 'day';
@@ -47,6 +53,8 @@ it('saves 26th anchored cycles and materializes blocked overnight work days', fu
 });
 
 it('validates work schedule inputs', function (): void {
+    $this->withHeaders(authHeaders());
+
     $this->putJson('/api/v1/work-schedule/cycles/2026-06-25', [
         'assignments' => ['day'],
     ])->assertUnprocessable();
@@ -57,4 +65,55 @@ it('validates work schedule inputs', function (): void {
 
     $this->getJson('/api/v1/work-schedule/days?from=2026-06-28&to=2026-06-27')
         ->assertUnprocessable();
+});
+
+it('isolates work schedule settings templates and cycles by authenticated user', function (): void {
+    $userA = User::factory()->create();
+    $userB = User::factory()->create();
+
+    $this->withHeaders(authHeaders($userA))
+        ->putJson('/api/v1/work-schedule/settings', [
+            'shift_templates' => [
+                ['code' => 'shared', 'name' => 'User A Shift', 'start_time' => '07:00', 'end_time' => '15:00'],
+            ],
+        ])->assertOk();
+
+    $this->withHeaders(authHeaders($userB))
+        ->putJson('/api/v1/work-schedule/settings', [
+            'shift_templates' => [
+                ['code' => 'shared', 'name' => 'User B Shift', 'start_time' => '15:00', 'end_time' => '23:00'],
+            ],
+        ])->assertOk();
+
+    $assignmentsA = array_fill(0, 31, null);
+    $assignmentsA[0] = 'shared';
+
+    $assignmentsB = array_fill(0, 31, null);
+    $assignmentsB[0] = 'shared';
+
+    $this->withHeaders(authHeaders($userA))
+        ->putJson('/api/v1/work-schedule/cycles/2026-06-26', [
+            'assignments' => $assignmentsA,
+        ])->assertOk();
+
+    $this->withHeaders(authHeaders($userB))
+        ->putJson('/api/v1/work-schedule/cycles/2026-06-26', [
+            'assignments' => $assignmentsB,
+        ])->assertOk();
+
+    $this->withHeaders(authHeaders($userA))
+        ->getJson('/api/v1/work-schedule/settings')
+        ->assertOk()
+        ->assertJsonFragment(['name' => 'User A Shift'])
+        ->assertJsonMissing(['name' => 'User B Shift']);
+
+    $this->withHeaders(authHeaders($userA))
+        ->getJson('/api/v1/work-schedule/days?from=2026-06-26&to=2026-06-26')
+        ->assertOk()
+        ->assertJsonPath('data.0.shift_template.name', 'User A Shift');
+
+    $this->withHeaders(authHeaders($userB))
+        ->getJson('/api/v1/work-schedule/days?from=2026-06-26&to=2026-06-26')
+        ->assertOk()
+        ->assertJsonPath('data.0.shift_template.name', 'User B Shift');
 });

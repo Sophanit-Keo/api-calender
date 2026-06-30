@@ -1,6 +1,10 @@
 <?php
 
+use App\Models\User;
+
 it('returns a day view with database overlays', function (): void {
+    $this->withHeaders(authHeaders());
+
     $this->postJson('/api/v1/notes', [
         'date' => '2026-06-27',
         'text' => 'Prepare calendar API homework',
@@ -38,6 +42,8 @@ it('returns a day view with database overlays', function (): void {
 });
 
 it('returns a month view with all days and overlays', function (): void {
+    $this->withHeaders(authHeaders());
+
     $this->postJson('/api/v1/notes', [
         'date' => '2026-06-05',
         'text' => 'Monthly note',
@@ -56,6 +62,38 @@ it('returns a month view with all days and overlays', function (): void {
 });
 
 it('validates calendar requests', function (): void {
+    $this->withHeaders(authHeaders());
+
     $this->getJson('/api/v1/calendar/convert')->assertUnprocessable();
     $this->getJson('/api/v1/calendar/month?year=1899&month=13')->assertUnprocessable();
+});
+
+it('isolates calendar overlays by authenticated user', function (): void {
+    $userA = User::factory()->create();
+    $userB = User::factory()->create();
+
+    $this->withHeaders(authHeaders($userA))
+        ->postJson('/api/v1/notes', [
+            'date' => '2026-06-27',
+            'text' => 'User A note',
+        ])->assertCreated();
+
+    $this->withHeaders(authHeaders($userB))
+        ->postJson('/api/v1/notes', [
+            'date' => '2026-06-27',
+            'text' => 'User B note',
+        ])->assertCreated();
+
+    $this->withHeaders(authHeaders($userB))
+        ->postJson('/api/v1/events', [
+            'title' => 'User B event',
+            'starts_at' => '2026-06-27 09:00:00',
+        ])->assertCreated();
+
+    $this->withHeaders(authHeaders($userA))
+        ->getJson('/api/v1/calendar/day?date=2026-06-27')
+        ->assertOk()
+        ->assertJsonCount(1, 'data.notes')
+        ->assertJsonPath('data.notes.0.text', 'User A note')
+        ->assertJsonCount(0, 'data.events');
 });

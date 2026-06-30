@@ -23,7 +23,8 @@ class EventController extends Controller
             'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
         ]);
 
-        $query = CalendarEvent::query();
+        $query = CalendarEvent::query()
+            ->where('user_id', $request->user()->id);
 
         if ($date = $validated['date'] ?? null) {
             $day = CarbonImmutable::parse($date, config('app.timezone'));
@@ -46,19 +47,24 @@ class EventController extends Controller
     public function store(Request $request): JsonResponse
     {
         $event = CalendarEvent::query()->create($this->validatedEvent($request) + [
+            'user_id' => $request->user()->id,
             'all_day' => $request->boolean('all_day'),
         ]);
 
         return response()->json(['data' => $this->formatEvent($event)], Response::HTTP_CREATED);
     }
 
-    public function show(CalendarEvent $event): JsonResponse
+    public function show(Request $request, CalendarEvent $event): JsonResponse
     {
+        $this->abortIfNotOwner($request, $event);
+
         return response()->json(['data' => $this->formatEvent($event)]);
     }
 
     public function update(Request $request, CalendarEvent $event): JsonResponse
     {
+        $this->abortIfNotOwner($request, $event);
+
         $data = $this->validatedEvent($request, updating: true);
 
         if ($request->has('all_day')) {
@@ -70,8 +76,10 @@ class EventController extends Controller
         return response()->json(['data' => $this->formatEvent($event->refresh())]);
     }
 
-    public function destroy(CalendarEvent $event): Response
+    public function destroy(Request $request, CalendarEvent $event): Response
     {
+        $this->abortIfNotOwner($request, $event);
+
         $event->delete();
 
         return response()->noContent();
@@ -100,5 +108,10 @@ class EventController extends Controller
                 $query->whereNull('ends_at')
                     ->orWhere('ends_at', '>=', $from);
             });
+    }
+
+    private function abortIfNotOwner(Request $request, CalendarEvent $event): void
+    {
+        abort_if($event->user_id !== $request->user()->id, Response::HTTP_NOT_FOUND);
     }
 }

@@ -13,10 +13,10 @@ class WorkScheduleController extends Controller
         private readonly WorkScheduleService $workSchedule,
     ) {}
 
-    public function settings(): JsonResponse
+    public function settings(Request $request): JsonResponse
     {
         return response()->json([
-            'data' => $this->workSchedule->settingsPayload(),
+            'data' => $this->workSchedule->settingsPayload($request->user()->id),
         ]);
     }
 
@@ -35,14 +35,14 @@ class WorkScheduleController extends Controller
         ]);
 
         return response()->json([
-            'data' => $this->workSchedule->updateSettings($validated),
+            'data' => $this->workSchedule->updateSettings($request->user()->id, $validated),
         ]);
     }
 
-    public function cycle(string $cycle_start_date): JsonResponse
+    public function cycle(Request $request, string $cycle_start_date): JsonResponse
     {
         return response()->json([
-            'data' => $this->workSchedule->cyclePayload($cycle_start_date),
+            'data' => $this->workSchedule->cyclePayload($request->user()->id, $cycle_start_date),
         ]);
     }
 
@@ -54,7 +54,7 @@ class WorkScheduleController extends Controller
         ]);
 
         return response()->json([
-            'data' => $this->workSchedule->saveCycle($cycle_start_date, $validated['assignments']),
+            'data' => $this->workSchedule->saveCycle($request->user()->id, $cycle_start_date, $validated['assignments']),
         ]);
     }
 
@@ -66,7 +66,7 @@ class WorkScheduleController extends Controller
         ]);
 
         return response()->json([
-            'data' => $this->workSchedule->materializeDays($validated['from'], $validated['to']),
+            'data' => $this->workSchedule->materializeDays($request->user()->id, $validated['from'], $validated['to']),
         ]);
     }
 }

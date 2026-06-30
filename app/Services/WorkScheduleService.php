@@ -16,10 +16,10 @@ class WorkScheduleService
 
     private const ANCHOR_DAY = 26;
 
-    public function settingsPayload(): array
+    public function settingsPayload(int $userId): array
     {
-        $setting = $this->setting();
-        $this->ensureDefaultShiftTemplates();
+        $setting = $this->setting($userId);
+        $this->ensureDefaultShiftTemplates($userId);
 
         return [
             'settings' => [
@@ -29,6 +29,7 @@ class WorkScheduleService
                 'reminder_minutes_before' => $setting->reminder_minutes_before,
             ],
             'shift_templates' => WorkShiftTemplate::query()
+                ->where('user_id', $userId)
                 ->orderBy('sort_order')
                 ->orderBy('id')
                 ->get()
@@ -37,9 +38,9 @@ class WorkScheduleService
         ];
     }
 
-    public function updateSettings(array $data): array
+    public function updateSettings(int $userId, array $data): array
     {
-        $setting = $this->setting();
+        $setting = $this->setting($userId);
 
         $setting->fill([
             'system_type' => $data['system_type'] ?? $setting->system_type,
@@ -49,7 +50,10 @@ class WorkScheduleService
 
         foreach ($data['shift_templates'] ?? [] as $index => $shiftData) {
             WorkShiftTemplate::query()->updateOrCreate(
-                ['code' => $shiftData['code']],
+                [
+                    'user_id' => $userId,
+                    'code' => $shiftData['code'],
+                ],
                 [
                     'name' => $shiftData['name'],
                     'start_time' => $this->normalizeTime($shiftData['start_time']),
@@ -59,7 +63,7 @@ class WorkScheduleService
             );
         }
 
-        return $this->settingsPayload();
+        return $this->settingsPayload($userId);
     }
 
     public function cycleStartFor(CarbonImmutable|string $date): CarbonImmutable
@@ -77,12 +81,13 @@ class WorkScheduleService
         return $this->date($cycleStart)->addMonthNoOverflow()->subDay();
     }
 
-    public function cyclePayload(CarbonImmutable|string $cycleStartDate): array
+    public function cyclePayload(int $userId, CarbonImmutable|string $cycleStartDate): array
     {
         $cycleStart = $this->parseCycleStartDate($cycleStartDate);
         $cycleEnd = $this->cycleEndForStart($cycleStart);
         $cycle = WorkScheduleCycle::query()
             ->with(['days.shiftTemplate'])
+            ->where('user_id', $userId)
             ->whereDate('cycle_start_date', $cycleStart->toDateString())
             ->first();
 
@@ -112,20 +117,25 @@ class WorkScheduleService
         ];
     }
 
-    public function saveCycle(CarbonImmutable|string $cycleStartDate, array $assignments): array
+    public function saveCycle(int $userId, CarbonImmutable|string $cycleStartDate, array $assignments): array
     {
-        $this->ensureDefaultShiftTemplates();
+        $this->ensureDefaultShiftTemplates($userId);
 
         $cycleStart = $this->parseCycleStartDate($cycleStartDate);
         $cycleEnd = $this->cycleEndForStart($cycleStart);
         $assignments = array_pad(array_slice($assignments, 0, self::CYCLE_SLOTS), self::CYCLE_SLOTS, null);
-        $templates = WorkShiftTemplate::query()->get();
+        $templates = WorkShiftTemplate::query()
+            ->where('user_id', $userId)
+            ->get();
         $templatesByCode = $templates->keyBy('code');
         $templatesById = $templates->keyBy(fn (WorkShiftTemplate $shift): string => (string) $shift->id);
 
-        DB::transaction(function () use ($cycleStart, $cycleEnd, $assignments, $templatesByCode, $templatesById): void {
+        DB::transaction(function () use ($userId, $cycleStart, $cycleEnd, $assignments, $templatesByCode, $templatesById): void {
             $cycle = WorkScheduleCycle::query()->updateOrCreate(
-                ['cycle_start_date' => $cycleStart->toDateString()],
+                [
+                    'user_id' => $userId,
+                    'cycle_start_date' => $cycleStart->toDateString(),
+                ],
                 ['cycle_end_date' => $cycleEnd->toDateString()],
             );
 
@@ -147,6 +157,7 @@ class WorkScheduleService
                 }
 
                 WorkScheduleDay::query()->create([
+                    'user_id' => $userId,
                     'work_schedule_cycle_id' => $cycle->id,
                     'work_date' => $date->toDateString(),
                     'day_offset' => $offset,
@@ -155,11 +166,11 @@ class WorkScheduleService
             }
         });
 
-        return $this->cyclePayload($cycleStart);
+        return $this->cyclePayload($userId, $cycleStart);
     }
 
     /** @return array<int, array<string, mixed>> */
-    public function materializeDays(CarbonImmutable|string $from, CarbonImmutable|string $to): array
+    public function materializeDays(int $userId, CarbonImmutable|string $from, CarbonImmutable|string $to): array
     {
         $from = $this->date($from);
         $to = $this->date($to);
@@ -173,6 +184,7 @@ class WorkScheduleService
         $scanFrom = $from->subDays(2);
         $rows = WorkScheduleDay::query()
             ->with('shiftTemplate')
+            ->where('user_id', $userId)
             ->whereBetween('work_date', [$scanFrom->toDateString(), $to->toDateString()])
             ->get()
             ->keyBy(fn (WorkScheduleDay $day): string => $day->work_date->toDateString());
@@ -183,6 +195,7 @@ class WorkScheduleService
         for ($date = $scanFrom; $date->lte($to); $date = $date->addDay()) {
             $row = $rows->get($date->toDateString());
             $shift = $row?->shiftTemplate;
+            $shift = $shift?->user_id === $userId ? $shift : null;
             $entry = [
                 'date' => $date->toDateString(),
                 'day_offset' => $row?->day_offset,
@@ -232,22 +245,26 @@ class WorkScheduleService
         ];
     }
 
-    private function setting(): WorkScheduleSetting
+    private function setting(int $userId): WorkScheduleSetting
     {
-        return WorkScheduleSetting::query()->firstOrCreate([], [
-            'system_type' => 2,
-            'remind' => true,
-            'reminder_minutes_before' => 30,
-        ]);
+        return WorkScheduleSetting::query()->firstOrCreate(
+            ['user_id' => $userId],
+            [
+                'system_type' => 2,
+                'remind' => true,
+                'reminder_minutes_before' => 30,
+            ],
+        );
     }
 
-    private function ensureDefaultShiftTemplates(): void
+    private function ensureDefaultShiftTemplates(int $userId): void
     {
-        if (WorkShiftTemplate::query()->exists()) {
+        if (WorkShiftTemplate::query()->where('user_id', $userId)->exists()) {
             return;
         }
 
         WorkShiftTemplate::query()->create([
+            'user_id' => $userId,
             'code' => 'day',
             'name' => 'Day',
             'start_time' => '07:30:00',
@@ -256,6 +273,7 @@ class WorkScheduleService
         ]);
 
         WorkShiftTemplate::query()->create([
+            'user_id' => $userId,
             'code' => 'night',
             'name' => 'Night',
             'start_time' => '19:30:00',

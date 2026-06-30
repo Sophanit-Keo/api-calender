@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class WorkScheduleCycle extends Model
@@ -11,6 +12,7 @@ class WorkScheduleCycle extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'cycle_start_date',
         'cycle_end_date',
     ];
@@ -26,5 +28,10 @@ class WorkScheduleCycle extends Model
     public function days(): HasMany
     {
         return $this->hasMany(WorkScheduleDay::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

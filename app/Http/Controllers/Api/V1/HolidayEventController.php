@@ -24,6 +24,7 @@ class HolidayEventController extends Controller
         ]);
 
         $holidays = HolidayEvent::query()
+            ->where('user_id', $request->user()->id)
             ->when($validated['type'] ?? null, fn ($query, string $type) => $query->where('type', $type))
             ->orderBy('date')
             ->get();
@@ -47,6 +48,7 @@ class HolidayEventController extends Controller
     public function store(Request $request): JsonResponse
     {
         $holiday = HolidayEvent::query()->create($this->validatedHoliday($request) + [
+            'user_id' => $request->user()->id,
             'type' => $request->input('type', 'custom'),
             'source' => $request->input('source', 'manual'),
             'is_fixed' => $request->boolean('is_fixed'),
@@ -56,13 +58,17 @@ class HolidayEventController extends Controller
         return response()->json(['data' => $this->formatHolidayEvent($holiday)], Response::HTTP_CREATED);
     }
 
-    public function show(HolidayEvent $holidayEvent): JsonResponse
+    public function show(Request $request, HolidayEvent $holidayEvent): JsonResponse
     {
+        $this->abortIfNotOwner($request, $holidayEvent);
+
         return response()->json(['data' => $this->formatHolidayEvent($holidayEvent)]);
     }
 
     public function update(Request $request, HolidayEvent $holidayEvent): JsonResponse
     {
+        $this->abortIfNotOwner($request, $holidayEvent);
+
         $data = $this->validatedHoliday($request, updating: true);
 
         foreach (['is_fixed', 'is_recurring_yearly'] as $booleanField) {
@@ -76,8 +82,10 @@ class HolidayEventController extends Controller
         return response()->json(['data' => $this->formatHolidayEvent($holidayEvent->refresh())]);
     }
 
-    public function destroy(HolidayEvent $holidayEvent): Response
+    public function destroy(Request $request, HolidayEvent $holidayEvent): Response
     {
+        $this->abortIfNotOwner($request, $holidayEvent);
+
         $holidayEvent->delete();
 
         return response()->noContent();
@@ -131,5 +139,10 @@ class HolidayEventController extends Controller
         }
 
         return false;
+    }
+
+    private function abortIfNotOwner(Request $request, HolidayEvent $holidayEvent): void
+    {
+        abort_if($holidayEvent->user_id !== $request->user()->id, Response::HTTP_NOT_FOUND);
     }
 }
