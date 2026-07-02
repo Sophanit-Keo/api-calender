@@ -820,7 +820,7 @@
 
                         <h3>Public National Holidays</h3>
                         <div class="endpoint-group">
-                            <div class="endpoint"><span class="method get">GET</span><div><code>/public-holidays?year=2026</code><p>List Cambodia public national holidays for a supported year.</p></div></div>
+                            <div class="endpoint"><span class="method get">GET</span><div><code>/public-holidays?year=2025</code><p>List Cambodia public national holidays for a supported year from 2020 through 2026.</p></div></div>
                             <div class="endpoint"><span class="method get">GET</span><div><code>/public-holidays?date=2026-12-29</code><p>Return public holidays that occur on one date.</p></div></div>
                             <div class="endpoint"><span class="method get">GET</span><div><code>/public-holidays?from=2026-11-23&amp;to=2026-11-25</code><p>Return public holidays inside a date range.</p></div></div>
                         </div>
@@ -982,7 +982,7 @@
   "meta": {
     "country_code": "KH",
     "country": "Cambodia",
-    "supported_years": [2026]
+    "supported_years": [2020, 2021, 2022, 2023, 2024, 2025, 2026]
   }
 }</code></pre>
 

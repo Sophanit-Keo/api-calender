@@ -189,12 +189,13 @@ The response contains `data.days`, one item per Gregorian day in that month. Eac
 
 ## Public National Holidays API
 
-Public national holidays are stored in the shared `public_holidays` table. Seed the Cambodia 2026 public holiday calendar with `php artisan db:seed --class=PublicHolidaySeeder`.
+Public national holidays are stored in the shared `public_holidays` table. Seed the Cambodia 2020-2026 public holiday calendar with `php artisan db:seed --class=PublicHolidaySeeder`.
 
 ### List Public Holidays
 
 ```http
 GET /api/v1/public-holidays?year=2026
+GET /api/v1/public-holidays?year=2025
 GET /api/v1/public-holidays?date=2026-12-29
 GET /api/v1/public-holidays?from=2026-11-23&to=2026-11-25
 ```

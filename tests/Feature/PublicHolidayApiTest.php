@@ -21,8 +21,25 @@ it('lists Cambodia public national holidays for 2026', function (): void {
 
     expect($holidays->firstWhere('date', '2026-05-01')['name_en'])->toContain('Visak Bochea')
         ->and($holidays->firstWhere('date', '2026-12-29')['name_en'])->toBe('Peace Day in Cambodia')
+        ->and($response->json('meta.supported_years'))->toBe([2020, 2021, 2022, 2023, 2024, 2025, 2026])
         ->and($response->json('meta.supported_years'))->toContain(2026)
-        ->and(PublicHoliday::query()->where('country_code', 'KH')->count())->toBe(21);
+        ->and(PublicHoliday::query()->where('country_code', 'KH')->count())->toBe(152);
+});
+
+it('lists Cambodia public national holidays for earlier supported years', function (): void {
+    $this->withHeaders(authHeaders());
+
+    $this->getJson('/api/v1/public-holidays?year=2025')
+        ->assertOk()
+        ->assertJsonCount(22, 'data')
+        ->assertJsonPath('data.0.date', '2025-01-01')
+        ->assertJsonPath('data.21.name_en', 'Peace Day in Cambodia');
+
+    $this->getJson('/api/v1/public-holidays?date=2020-08-17')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.name_en', 'Khmer New Year Holiday')
+        ->assertJsonPath('data.0.duration_days', 5);
 });
 
 it('filters Cambodia public national holidays by date and range', function (): void {
