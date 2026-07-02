@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CalendarEvent;
 use App\Models\HolidayEvent;
 use App\Models\Note;
+use App\Services\BuddhistEventService;
 use App\Services\KhmerCalendarService;
 use App\Services\PublicHolidayService;
 use App\Services\WorkScheduleService;
@@ -23,6 +24,7 @@ class CalendarController extends Controller
         private readonly KhmerCalendarService $khmerCalendar,
         private readonly WorkScheduleService $workSchedule,
         private readonly PublicHolidayService $publicHolidays,
+        private readonly BuddhistEventService $buddhistEvents,
     ) {}
 
     public function convert(Request $request): JsonResponse
@@ -87,6 +89,7 @@ class CalendarController extends Controller
             'events' => $this->eventsForDate($userId, $date),
             'holiday_events' => $this->holidayEventsForDate($userId, $date),
             'public_holidays' => $this->publicHolidays->holidaysForDate($date),
+            'buddhist_events' => $this->buddhistEvents->eventsForDate($date),
             'work_shift' => $this->workSchedule->materializeDays($userId, $date, $date)[0] ?? null,
         ];
     }

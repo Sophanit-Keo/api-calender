@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BuddhistEventController;
 use App\Http\Controllers\Api\V1\CalendarController;
 use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\HolidayEventController;
@@ -22,6 +23,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('calendar/day', [CalendarController::class, 'day']);
         Route::get('calendar/month', [CalendarController::class, 'month']);
         Route::get('public-holidays', [PublicHolidayController::class, 'index']);
+        Route::get('buddhist-events', [BuddhistEventController::class, 'index']);
 
         Route::apiResource('notes', NoteController::class);
         Route::apiResource('events', EventController::class);

@@ -1,6 +1,6 @@
 # Khmer Calendar API
 
-A Laravel JSON API for Khmer calendar data, Cambodia public national holidays, notes, normal events, holiday events, and 26th-to-25th work schedules.
+A Laravel JSON API for Khmer calendar data, Cambodia public national holidays, Buddhist events, notes, normal events, holiday events, and 26th-to-25th work schedules.
 
 The API includes a PHP port of the Khmer lunar calendar logic from `Jeng12/Khmer_Calender_GL`, so clients can request Gregorian dates and receive Khmer lunar date information, Buddhist Era, zodiac, moon phase, built-in holiday names, and auspicious-day markers.
 
@@ -53,6 +53,7 @@ Seed the shared public holiday table:
 
 ```bash
 php artisan db:seed --class=PublicHolidaySeeder
+php artisan db:seed --class=BuddhistEventSeeder
 ```
 
 Start the API server:
@@ -161,7 +162,7 @@ Response shape:
 
 ### Day View With Database Overlays
 
-Returns computed Khmer calendar data plus public national holidays, notes, events, holiday events, and work shift for the date.
+Returns computed Khmer calendar data plus public national holidays, Buddhist events, notes, events, holiday events, and work shift for the date.
 
 ```http
 GET /api/v1/calendar/day?date=2026-06-27
@@ -185,7 +186,7 @@ Example:
 curl "http://127.0.0.1:8000/api/v1/calendar/month?year=2026&month=6"
 ```
 
-The response contains `data.days`, one item per Gregorian day in that month. Each day includes a `public_holidays` array.
+The response contains `data.days`, one item per Gregorian day in that month. Each day includes `public_holidays` and `buddhist_events` arrays.
 
 ## Public National Holidays API
 
@@ -225,6 +226,43 @@ Response items include:
   "duration_days": 1,
   "source": "Royal Government of Cambodia public holidays for 2026 / MLVT Prakas No. 216/25",
   "source_url": "https://www.kbprasacbank.com.kh/en/media/public-holiday/"
+}
+```
+
+## Buddhist Events API
+
+Buddhist events are stored in the shared `buddhist_events` table. Seed the Cambodia 2020-2026 events with `php artisan db:seed --class=BuddhistEventSeeder`. The seeder generates Thngai Sil / Uposatha days, Meak Bochea, Vassa, and Kathina from Khmer lunar calendar rules, and imports major Buddhist or traditional observances from public holiday data.
+
+### List Buddhist Events
+
+```http
+GET /api/v1/buddhist-events?year=2026
+GET /api/v1/buddhist-events?date=2026-05-01
+GET /api/v1/buddhist-events?from=2026-05-01&to=2026-05-31
+GET /api/v1/buddhist-events?year=2026&type=uposatha
+```
+
+Response items include:
+
+```json
+{
+  "id": "kh-buddhist-2026-visak-bochea-1",
+  "country_code": "KH",
+  "country": "Cambodia",
+  "date": "2026-05-01",
+  "name_km": null,
+  "name_en": "Visak Bochea Day",
+  "type": "festival",
+  "tradition": "theravada",
+  "is_public_holiday": true,
+  "lunar_month_name": "...",
+  "lunar_day": 1,
+  "is_waxing": true,
+  "buddhist_era": 2570,
+  "start_date": "2026-05-01",
+  "end_date": "2026-05-01",
+  "day_number": 1,
+  "duration_days": 1
 }
 ```
 
@@ -543,6 +581,7 @@ curl "http://127.0.0.1:8000/api/v1/calendar/day?date=2026-06-27"
 - `events`
 - `holiday_events`
 - `public_holidays`
+- `buddhist_events`
 - `work_shift_templates`
 - `work_schedule_settings`
 - `work_schedule_cycles`
