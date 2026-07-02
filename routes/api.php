@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\CalendarController;
 use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\HolidayEventController;
 use App\Http\Controllers\Api\V1\NoteController;
+use App\Http\Controllers\Api\V1\PublicHolidayController;
 use App\Http\Controllers\Api\V1\WorkScheduleController;
 use App\Http\Middleware\AuthenticateApiToken;
 use Illuminate\Support\Facades\Route;
@@ -20,6 +21,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('calendar/convert', [CalendarController::class, 'convert']);
         Route::get('calendar/day', [CalendarController::class, 'day']);
         Route::get('calendar/month', [CalendarController::class, 'month']);
+        Route::get('public-holidays', [PublicHolidayController::class, 'index']);
 
         Route::apiResource('notes', NoteController::class);
         Route::apiResource('events', EventController::class);

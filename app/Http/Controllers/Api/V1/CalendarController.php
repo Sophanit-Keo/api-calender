@@ -8,6 +8,7 @@ use App\Models\CalendarEvent;
 use App\Models\HolidayEvent;
 use App\Models\Note;
 use App\Services\KhmerCalendarService;
+use App\Services\PublicHolidayService;
 use App\Services\WorkScheduleService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -21,6 +22,7 @@ class CalendarController extends Controller
     public function __construct(
         private readonly KhmerCalendarService $khmerCalendar,
         private readonly WorkScheduleService $workSchedule,
+        private readonly PublicHolidayService $publicHolidays,
     ) {}
 
     public function convert(Request $request): JsonResponse
@@ -84,6 +86,7 @@ class CalendarController extends Controller
                 ->values(),
             'events' => $this->eventsForDate($userId, $date),
             'holiday_events' => $this->holidayEventsForDate($userId, $date),
+            'public_holidays' => $this->publicHolidays->holidaysForDate($date),
             'work_shift' => $this->workSchedule->materializeDays($userId, $date, $date)[0] ?? null,
         ];
     }

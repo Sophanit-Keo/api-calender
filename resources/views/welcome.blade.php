@@ -582,7 +582,7 @@
                 <span class="brand-mark">KC</span>
                 <span>
                     <span class="brand-title">Khmer Calendar API</span>
-                    <span class="brand-subtitle">Calendar, notes, events, holidays, and work schedules</span>
+                    <span class="brand-subtitle">Calendar, public holidays, notes, events, and work schedules</span>
                 </span>
             </a>
             <div class="top-links" aria-label="Documentation shortcuts">
@@ -597,7 +597,7 @@
                 <div>
                     <h1 id="page-title">Developer guide for the Khmer Calendar API</h1>
                     <p class="lead">
-                        Build calendar experiences with Khmer lunar date conversion, user-owned notes, normal events, custom holiday events, and 26th-to-25th work schedule cycles. All saved user data is protected by bearer token authentication.
+                        Build calendar experiences with Khmer lunar date conversion, Cambodia public national holidays, user-owned notes, normal events, custom holiday events, and 26th-to-25th work schedule cycles. All saved user data is protected by bearer token authentication.
                     </p>
                     <div class="hero-actions">
                         <a class="button primary" href="#authentication">Get an API token</a>
@@ -628,7 +628,7 @@
                     <div class="endpoint-preview">
                         <div class="preview-row"><span class="method post">POST</span><code>/auth/login</code></div>
                         <div class="preview-row"><span class="method get">GET</span><code>/calendar/day</code></div>
-                        <div class="preview-row"><span class="method post">POST</span><code>/notes</code></div>
+                        <div class="preview-row"><span class="method get">GET</span><code>/public-holidays</code></div>
                         <div class="preview-row"><span class="method put">PUT</span><code>/work-schedule/cycles/{date}</code></div>
                     </div>
                 </aside>
@@ -653,12 +653,12 @@
                     <section class="section" id="overview" aria-labelledby="overview-title">
                         <h2 id="overview-title">Overview</h2>
                         <p>
-                            The API returns JSON for Khmer calendar calculations and user-specific calendar overlays. Calendar conversion can calculate Gregorian date details, Khmer lunar fields, Buddhist Era, zodiac, moon phase, built-in holiday names, and auspicious-day markers. Authenticated users can store their own notes, events, custom holiday records, and work schedule settings without mixing data with other accounts.
+                            The API returns JSON for Khmer calendar calculations, Cambodia public national holidays, and user-specific calendar overlays. Calendar conversion can calculate Gregorian date details, Khmer lunar fields, Buddhist Era, zodiac, moon phase, built-in holiday names, and auspicious-day markers. Authenticated users can store their own notes, events, custom holiday records, and work schedule settings without mixing data with other accounts.
                         </p>
                         <div class="grid-3">
                             <div class="info-box">
-                                <strong>Computed calendar data</strong>
-                                <p>Convert one date, inspect one day, or fetch a full Gregorian month with Khmer lunar metadata.</p>
+                                <strong>Calendar and public holidays</strong>
+                                <p>Convert one date, inspect one day, or fetch a full Gregorian month with Khmer lunar metadata and database-backed public holidays.</p>
                             </div>
                             <div class="info-box">
                                 <strong>User-owned overlays</strong>
@@ -703,6 +703,9 @@
                         <pre><code>curl "{{ $baseUrl }}/calendar/day?date=2026-06-27" \
   -H "Accept: application/json" \
   -H "Authorization: Bearer &lt;token&gt;"</code></pre>
+
+                        <h3>Seed public holidays</h3>
+                        <pre><code>php artisan db:seed --class=PublicHolidaySeeder</code></pre>
                     </section>
 
                     <section class="section" id="authentication" aria-labelledby="authentication-title">
@@ -811,8 +814,15 @@
                         <h3>Calendar</h3>
                         <div class="endpoint-group">
                             <div class="endpoint"><span class="method get">GET</span><div><code>/calendar/convert?date=2026-04-14</code><p>Return computed Khmer calendar fields for one Gregorian date.</p></div></div>
-                            <div class="endpoint"><span class="method get">GET</span><div><code>/calendar/day?date=2026-06-27</code><p>Return calendar fields plus the authenticated user's notes, events, holiday events, and work shift for one date.</p></div></div>
-                            <div class="endpoint"><span class="method get">GET</span><div><code>/calendar/month?year=2026&amp;month=6</code><p>Return all days in a Gregorian month with computed calendar data and user overlays.</p></div></div>
+                            <div class="endpoint"><span class="method get">GET</span><div><code>/calendar/day?date=2026-06-27</code><p>Return calendar fields plus public holidays, the authenticated user's notes, events, holiday events, and work shift for one date.</p></div></div>
+                            <div class="endpoint"><span class="method get">GET</span><div><code>/calendar/month?year=2026&amp;month=6</code><p>Return all days in a Gregorian month with computed calendar data, public holidays, and user overlays.</p></div></div>
+                        </div>
+
+                        <h3>Public National Holidays</h3>
+                        <div class="endpoint-group">
+                            <div class="endpoint"><span class="method get">GET</span><div><code>/public-holidays?year=2026</code><p>List Cambodia public national holidays for a supported year.</p></div></div>
+                            <div class="endpoint"><span class="method get">GET</span><div><code>/public-holidays?date=2026-12-29</code><p>Return public holidays that occur on one date.</p></div></div>
+                            <div class="endpoint"><span class="method get">GET</span><div><code>/public-holidays?from=2026-11-23&amp;to=2026-11-25</code><p>Return public holidays inside a date range.</p></div></div>
                         </div>
 
                         <h3>Notes</h3>
@@ -942,7 +952,37 @@
     "notes": [],
     "events": [],
     "holiday_events": [],
+    "public_holidays": [],
     "work_shift": null
+  }
+}</code></pre>
+
+                        <h3>List public national holidays</h3>
+                        <pre><code>curl "{{ $baseUrl }}/public-holidays?date=2026-12-29" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer &lt;token&gt;"</code></pre>
+                        <pre><code>{
+  "data": [
+    {
+      "id": "kh-2026-peace-day-in-cambodia-1",
+      "country_code": "KH",
+      "country": "Cambodia",
+      "date": "2026-12-29",
+      "name_km": null,
+      "name_en": "Peace Day in Cambodia",
+      "type": "public_national",
+      "is_public": true,
+      "is_national": true,
+      "start_date": "2026-12-29",
+      "end_date": "2026-12-29",
+      "day_number": 1,
+      "duration_days": 1
+    }
+  ],
+  "meta": {
+    "country_code": "KH",
+    "country": "Cambodia",
+    "supported_years": [2026]
   }
 }</code></pre>
 

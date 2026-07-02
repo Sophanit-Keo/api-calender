@@ -1,6 +1,6 @@
 # Khmer Calendar API
 
-A Laravel JSON API for Khmer calendar data, notes, normal events, holiday events, and 26th-to-25th work schedules.
+A Laravel JSON API for Khmer calendar data, Cambodia public national holidays, notes, normal events, holiday events, and 26th-to-25th work schedules.
 
 The API includes a PHP port of the Khmer lunar calendar logic from `Jeng12/Khmer_Calender_GL`, so clients can request Gregorian dates and receive Khmer lunar date information, Buddhist Era, zodiac, moon phase, built-in holiday names, and auspicious-day markers.
 
@@ -47,6 +47,12 @@ Run migrations:
 
 ```bash
 php artisan migrate
+```
+
+Seed the shared public holiday table:
+
+```bash
+php artisan db:seed --class=PublicHolidaySeeder
 ```
 
 Start the API server:
@@ -155,7 +161,7 @@ Response shape:
 
 ### Day View With Database Overlays
 
-Returns computed Khmer calendar data plus notes, events, holiday events, and work shift for the date.
+Returns computed Khmer calendar data plus public national holidays, notes, events, holiday events, and work shift for the date.
 
 ```http
 GET /api/v1/calendar/day?date=2026-06-27
@@ -179,7 +185,47 @@ Example:
 curl "http://127.0.0.1:8000/api/v1/calendar/month?year=2026&month=6"
 ```
 
-The response contains `data.days`, one item per Gregorian day in that month.
+The response contains `data.days`, one item per Gregorian day in that month. Each day includes a `public_holidays` array.
+
+## Public National Holidays API
+
+Public national holidays are stored in the shared `public_holidays` table. Seed the Cambodia 2026 public holiday calendar with `php artisan db:seed --class=PublicHolidaySeeder`.
+
+### List Public Holidays
+
+```http
+GET /api/v1/public-holidays?year=2026
+GET /api/v1/public-holidays?date=2026-12-29
+GET /api/v1/public-holidays?from=2026-11-23&to=2026-11-25
+```
+
+Example:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/public-holidays?year=2026"
+```
+
+Response items include:
+
+```json
+{
+  "id": "kh-2026-peace-day-in-cambodia-1",
+  "country_code": "KH",
+  "country": "Cambodia",
+  "date": "2026-12-29",
+  "name_km": null,
+  "name_en": "Peace Day in Cambodia",
+  "type": "public_national",
+  "is_public": true,
+  "is_national": true,
+  "start_date": "2026-12-29",
+  "end_date": "2026-12-29",
+  "day_number": 1,
+  "duration_days": 1,
+  "source": "Royal Government of Cambodia public holidays for 2026 / MLVT Prakas No. 216/25",
+  "source_url": "https://www.kbprasacbank.com.kh/en/media/public-holiday/"
+}
+```
 
 ## Notes API
 
@@ -495,6 +541,7 @@ curl "http://127.0.0.1:8000/api/v1/calendar/day?date=2026-06-27"
 - `notes`
 - `events`
 - `holiday_events`
+- `public_holidays`
 - `work_shift_templates`
 - `work_schedule_settings`
 - `work_schedule_cycles`
