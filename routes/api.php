@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\HolidayEventController;
 use App\Http\Controllers\Api\V1\NoteController;
 use App\Http\Controllers\Api\V1\PublicHolidayController;
+use App\Http\Controllers\Api\V1\ScheduleEntryController;
 use App\Http\Controllers\Api\V1\WorkScheduleController;
 use App\Http\Middleware\AuthenticateApiToken;
 use Illuminate\Support\Facades\Route;
@@ -28,6 +29,12 @@ Route::prefix('v1')->group(function (): void {
         Route::apiResource('notes', NoteController::class);
         Route::apiResource('events', EventController::class);
         Route::apiResource('holiday-events', HolidayEventController::class);
+
+        Route::get('schedules/summary', [ScheduleEntryController::class, 'summary']);
+        Route::get('schedules/users', [ScheduleEntryController::class, 'users']);
+        Route::get('schedules/export', [ScheduleEntryController::class, 'export']);
+        Route::post('schedules/import', [ScheduleEntryController::class, 'import']);
+        Route::apiResource('schedules', ScheduleEntryController::class)->parameters(['schedules' => 'scheduleEntry']);
 
         Route::get('work-schedule/settings', [WorkScheduleController::class, 'settings']);
         Route::put('work-schedule/settings', [WorkScheduleController::class, 'updateSettings']);
