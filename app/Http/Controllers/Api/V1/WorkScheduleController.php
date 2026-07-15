@@ -16,13 +16,14 @@ class WorkScheduleController extends Controller
     public function settings(Request $request): JsonResponse
     {
         return response()->json([
-            'data' => $this->workSchedule->settingsPayload($request->user()->id),
+            'data' => $this->workSchedule->settingsPayload($this->targetUserId($request)),
         ]);
     }
 
     public function updateSettings(Request $request): JsonResponse
     {
         $validated = $request->validate([
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'system_type' => ['sometimes', 'integer', 'in:2,3'],
             'remind' => ['sometimes', 'boolean'],
             'reminder_minutes_before' => ['sometimes', 'integer', 'min:0', 'max:1440'],
@@ -35,38 +36,45 @@ class WorkScheduleController extends Controller
         ]);
 
         return response()->json([
-            'data' => $this->workSchedule->updateSettings($request->user()->id, $validated),
+            'data' => $this->workSchedule->updateSettings($this->targetUserId($request), $validated),
         ]);
     }
 
     public function cycle(Request $request, string $cycle_start_date): JsonResponse
     {
         return response()->json([
-            'data' => $this->workSchedule->cyclePayload($request->user()->id, $cycle_start_date),
+            'data' => $this->workSchedule->cyclePayload($this->targetUserId($request), $cycle_start_date),
         ]);
     }
 
     public function updateCycle(Request $request, string $cycle_start_date): JsonResponse
     {
         $validated = $request->validate([
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'assignments' => ['required', 'array', 'min:1', 'max:31'],
             'assignments.*' => ['nullable', 'string', 'max:50'],
         ]);
 
         return response()->json([
-            'data' => $this->workSchedule->saveCycle($request->user()->id, $cycle_start_date, $validated['assignments']),
+            'data' => $this->workSchedule->saveCycle($this->targetUserId($request), $cycle_start_date, $validated['assignments']),
         ]);
     }
 
     public function days(Request $request): JsonResponse
     {
         $validated = $request->validate([
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'from' => ['required', 'date_format:Y-m-d'],
             'to' => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
         ]);
 
         return response()->json([
-            'data' => $this->workSchedule->materializeDays($request->user()->id, $validated['from'], $validated['to']),
+            'data' => $this->workSchedule->materializeDays($this->targetUserId($request), $validated['from'], $validated['to']),
         ]);
+    }
+
+    private function targetUserId(Request $request): int
+    {
+        return (int) ($request->input('user_id') ?? $request->user()->id);
     }
 }
