@@ -7,6 +7,7 @@ use Carbon\CarbonImmutable;
 class KhmerCalendarService
 {
     private const FIRST_YEAR = 1900;
+
     private const LAST_YEAR = 2200;
 
     /** @var array<int, array{serial_day:int, khmer_month_name:string, length:int, be:int, zodiac:string}>|null */

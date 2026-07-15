@@ -34,6 +34,16 @@ class User extends Authenticatable
         return $this->hasMany(CalendarEvent::class);
     }
 
+    public function ownedScheduleEntries(): HasMany
+    {
+        return $this->hasMany(ScheduleEntry::class, 'owner_id');
+    }
+
+    public function assignedScheduleEntries(): HasMany
+    {
+        return $this->hasMany(ScheduleEntry::class, 'assignee_id');
+    }
+
     public function holidayEvents(): HasMany
     {
         return $this->hasMany(HolidayEvent::class);
