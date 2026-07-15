@@ -13,7 +13,7 @@ it('serves the schedule dashboard', function (): void {
     $this->get('/dashboard')
         ->assertOk()
         ->assertSee('ScheduleFlow')
-        ->assertSee('Schedule sheet');
+        ->assertSee('Team roster');
 });
 
 it('creates filters updates and deletes schedule entries', function (): void {

@@ -11,6 +11,7 @@ const state = {
     period: 'month',
     cursor: startOfDay(new Date()),
     filters: { search: '', user_id: '', status: '', priority: '' },
+    roster: { cursor: startOfWeek(new Date()), codes: [], staff: [], loaded: false },
 };
 
 const elements = {
@@ -25,6 +26,11 @@ const elements = {
     scheduleRows: document.querySelector('#schedule-rows'),
     dialog: document.querySelector('#schedule-dialog'),
     scheduleForm: document.querySelector('#schedule-form'),
+    rosterHeadRow: document.querySelector('#roster-head-row'),
+    rosterRows: document.querySelector('#roster-rows'),
+    rosterLegend: document.querySelector('#roster-legend'),
+    staffDialog: document.querySelector('#staff-dialog'),
+    staffForm: document.querySelector('#staff-form'),
     toast: document.querySelector('#toast'),
 };
 
@@ -78,10 +84,6 @@ function escapeHtml(value = '') {
 
 function option(value, label, selectedValue) {
     return `<option value="${escapeHtml(value)}"${String(value) === String(selectedValue ?? '') ? ' selected' : ''}>${escapeHtml(label)}</option>`;
-}
-
-function titleCase(value) {
-    return String(value).replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function filtersQuery() {
@@ -253,7 +255,6 @@ function renderSummary(summary) {
 
 function renderAll() {
     renderCalendar();
-    renderSpreadsheet();
 }
 
 function renderCalendar() {
@@ -321,56 +322,131 @@ function bindCalendarInteractions() {
     });
 }
 
-function renderSpreadsheet() {
-    document.querySelector('#sheet-count').textContent = `${state.schedules.length} ${state.schedules.length === 1 ? 'row' : 'rows'}`;
-    document.querySelector('#table-empty').classList.toggle('hidden', state.schedules.length > 0);
-    elements.scheduleRows.innerHTML = state.schedules.map((entry, index) => {
-        const assigneeOptions = '<option value="">Unassigned</option>' + state.users.map((user) => option(user.id, user.name, entry.assignee?.id)).join('');
-        return `<tr data-row-id="${entry.id}" class="${escapeHtml(entry.status === 'cancelled' ? 'cancelled' : entry.timing)}">
-            <td><input value="${index + 1}" aria-label="Row number" readonly></td>
-            <td><input name="scheduled_date" type="date" value="${escapeHtml(entry.scheduled_date)}" aria-label="Date"></td>
-            <td><div class="sheet-time"><input name="start_time" type="time" value="${escapeHtml(entry.start_time || '')}" aria-label="Start time"><input name="end_time" type="time" value="${escapeHtml(entry.end_time || '')}" aria-label="End time"></div></td>
-            <td><input name="task" value="${escapeHtml(entry.task)}" maxlength="255" aria-label="Task"></td>
-            <td><input name="description" value="${escapeHtml(entry.description || '')}" maxlength="5000" aria-label="Description"></td>
-            <td><select name="priority" aria-label="Priority">${['low','medium','high','urgent'].map((value) => option(value, titleCase(value), entry.priority)).join('')}</select></td>
-            <td><select name="status" aria-label="Status">${['scheduled','in_progress','completed','cancelled'].map((value) => option(value, titleCase(value), entry.status)).join('')}</select></td>
-            <td><select name="assignee_id" aria-label="Assignee">${assigneeOptions}</select></td>
-            <td><div class="sheet-actions"><button class="sheet-action save" data-save-row="${entry.id}" title="Save row">✓</button><button class="sheet-action" data-edit-row="${entry.id}" title="Open details">↗</button><button class="sheet-action delete" data-delete-row="${entry.id}" title="Delete row">×</button></div></td>
+function visibleRosterRange() {
+    const from = state.roster.cursor;
+    return { from, to: addDays(from, 6) };
+}
+
+async function refreshRoster() {
+    setLoading(true);
+    const { from, to } = visibleRosterRange();
+    try {
+        const payload = await api(`/roster?from=${dateKey(from)}&to=${dateKey(to)}`);
+        state.roster.codes = payload.data.codes;
+        state.roster.staff = payload.data.staff;
+        state.roster.loaded = true;
+        renderRoster();
+    } catch (error) {
+        showToast(error.message, 'error');
+    } finally {
+        setLoading(false);
+    }
+}
+
+function rosterDays() {
+    const { from } = visibleRosterRange();
+    return Array.from({ length: 7 }, (_, index) => addDays(from, index));
+}
+
+function renderRosterLegend() {
+    elements.rosterLegend.innerHTML = state.roster.codes.map((code) => `
+        <span><i class="dot roster-dot-${escapeHtml(code.color)}"></i>${escapeHtml(code.code)} — ${escapeHtml(code.label)}</span>
+    `).join('');
+}
+
+function renderRosterHead() {
+    const days = rosterDays();
+    const { from, to } = visibleRosterRange();
+    document.querySelector('#roster-range-label').textContent = `${from.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${to.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    const dayHeaders = days.map((day) => `<th class="${sameDay(day, new Date()) ? 'roster-today' : ''}">${escapeHtml(day.toLocaleDateString(undefined, { weekday: 'short' }))}<small>${day.getDate()}</small></th>`).join('');
+    elements.rosterHeadRow.innerHTML = '<th>#</th><th>Staff ID</th><th>Full name</th><th>Position</th>' + dayHeaders + '<th>Actions</th>';
+}
+
+function renderRoster() {
+    document.querySelector('#roster-count').textContent = `${state.roster.staff.length} ${state.roster.staff.length === 1 ? 'staff' : 'staff'}`;
+    document.querySelector('#roster-empty').classList.toggle('hidden', state.roster.staff.length > 0);
+    renderRosterLegend();
+    renderRosterHead();
+    const days = rosterDays();
+
+    elements.rosterRows.innerHTML = state.roster.staff.map((staff, index) => {
+        const cells = days.map((day) => {
+            const key = dateKey(day);
+            const cell = staff.entries[key] || null;
+            const colorClass = cell ? `roster-cell-${escapeHtml(cell.color)}` : '';
+            const options = '<option value="">—</option>' + state.roster.codes.map((code) => option(code.id, code.code, cell?.id)).join('');
+            return `<td class="roster-cell ${colorClass}"><select data-user-id="${staff.id}" data-work-date="${key}" aria-label="${escapeHtml(staff.name)} on ${key}">${options}</select></td>`;
+        }).join('');
+        return `<tr data-staff-id="${staff.id}">
+            <td>${index + 1}</td>
+            <td>${escapeHtml(staff.staff_id || '—')}</td>
+            <td>${escapeHtml(staff.name)}</td>
+            <td>${escapeHtml(staff.position || '—')}</td>
+            ${cells}
+            <td><button class="sheet-action delete" data-clear-staff="${staff.id}" title="Clear this staff member's week">×</button></td>
         </tr>`;
     }).join('');
-    bindSpreadsheetInteractions();
+    bindRosterInteractions();
 }
 
-function rowPayload(row) {
-    const value = (name) => row.querySelector(`[name="${name}"]`).value;
-    return {
-        scheduled_date: value('scheduled_date'),
-        start_time: value('start_time') || null,
-        end_time: value('end_time') || null,
-        task: value('task').trim(),
-        description: value('description').trim() || null,
-        priority: value('priority'),
-        status: value('status'),
-        assignee_id: value('assignee_id') || null,
-    };
-}
-
-function bindSpreadsheetInteractions() {
-    elements.scheduleRows.querySelectorAll('[data-save-row]').forEach((button) => button.addEventListener('click', async () => {
-        const row = button.closest('tr');
-        button.disabled = true;
+function bindRosterInteractions() {
+    elements.rosterRows.querySelectorAll('select[data-user-id]').forEach((select) => select.addEventListener('change', async () => {
+        select.disabled = true;
         try {
-            await api(`/schedules/${button.dataset.saveRow}`, { method: 'PUT', body: JSON.stringify(rowPayload(row)) });
-            showToast('Schedule row saved.');
-            await refreshData();
+            await api('/roster/cell', {
+                method: 'PUT',
+                body: JSON.stringify({
+                    user_id: Number(select.dataset.userId),
+                    work_date: select.dataset.workDate,
+                    roster_code_id: select.value || null,
+                }),
+            });
+            await refreshRoster();
         } catch (error) {
             showToast(error.message, 'error');
-        } finally {
-            button.disabled = false;
+            select.disabled = false;
         }
     }));
-    elements.scheduleRows.querySelectorAll('[data-edit-row]').forEach((button) => button.addEventListener('click', () => openScheduleDialog(Number(button.dataset.editRow))));
-    elements.scheduleRows.querySelectorAll('[data-delete-row]').forEach((button) => button.addEventListener('click', () => deleteSchedule(Number(button.dataset.deleteRow))));
+    elements.rosterRows.querySelectorAll('[data-clear-staff]').forEach((button) => button.addEventListener('click', async () => {
+        const staff = state.roster.staff.find((item) => item.id === Number(button.dataset.clearStaff));
+        if (!staff || !window.confirm(`Clear ${staff.name}’s roster for this week? This cannot be undone.`)) return;
+        const { from, to } = visibleRosterRange();
+        try {
+            await api(`/roster/staff/${staff.id}?from=${dateKey(from)}&to=${dateKey(to)}`, { method: 'DELETE' });
+            showToast(`Cleared ${staff.name}’s roster for this week.`);
+            await refreshRoster();
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    }));
+}
+
+function openStaffDialog() {
+    elements.staffForm.reset();
+    document.querySelector('#staff-form-error').textContent = '';
+    elements.staffDialog.showModal();
+    setTimeout(() => elements.staffForm.elements.name.focus(), 50);
+}
+
+async function saveStaff(event) {
+    event.preventDefault();
+    const form = elements.staffForm;
+    const submit = form.querySelector('[type="submit"]');
+    const data = Object.fromEntries(new FormData(form));
+    data.device_name = 'roster-add-staff';
+    submit.disabled = true;
+    document.querySelector('#staff-form-error').textContent = '';
+    try {
+        await api('/auth/register', { method: 'POST', body: JSON.stringify(data) });
+        elements.staffDialog.close();
+        showToast(`${data.name} added to the roster.`);
+        await loadUsers();
+        await refreshRoster();
+    } catch (error) {
+        document.querySelector('#staff-form-error').textContent = error.message;
+    } finally {
+        submit.disabled = false;
+    }
 }
 
 function openScheduleDialog(id = null, date = null) {
@@ -431,6 +507,8 @@ function selectWorkspaceView(view) {
     document.querySelectorAll('[data-workspace-view]').forEach((button) => button.classList.toggle('active', button.dataset.workspaceView === view));
     elements.calendarPanel.classList.toggle('hidden', view !== 'calendar');
     elements.spreadsheetPanel.classList.toggle('hidden', view !== 'spreadsheet');
+    document.querySelector('.filter-group').classList.toggle('hidden', view !== 'calendar');
+    if (view === 'spreadsheet') refreshRoster().catch((error) => showToast(error.message, 'error'));
 }
 
 function selectSection(section) {
@@ -516,6 +594,14 @@ function bindEvents() {
         ['user', 'status', 'priority'].forEach((name) => { document.querySelector(`#${name}-filter`).value = ''; });
         applyFilters();
     });
+    document.querySelector('#add-staff-button').addEventListener('click', openStaffDialog);
+    elements.staffForm.addEventListener('submit', saveStaff);
+    elements.staffDialog.querySelector('.modal-close').addEventListener('click', () => elements.staffDialog.close());
+    elements.staffDialog.querySelector('.modal-cancel').addEventListener('click', () => elements.staffDialog.close());
+    elements.staffDialog.addEventListener('click', (event) => { if (event.target === elements.staffDialog) elements.staffDialog.close(); });
+    document.querySelector('#roster-today').addEventListener('click', async () => { state.roster.cursor = startOfWeek(new Date()); await refreshRoster(); });
+    document.querySelector('#roster-previous-week').addEventListener('click', async () => { state.roster.cursor = addDays(state.roster.cursor, -7); await refreshRoster(); });
+    document.querySelector('#roster-next-week').addEventListener('click', async () => { state.roster.cursor = addDays(state.roster.cursor, 7); await refreshRoster(); });
     document.querySelector('#export-button').addEventListener('click', exportSchedules);
     document.querySelector('#import-button').addEventListener('click', () => document.querySelector('#import-file').click());
     document.querySelector('#import-file').addEventListener('change', (event) => importSchedules(event.target.files[0]));
@@ -526,6 +612,7 @@ function bindEvents() {
             document.querySelector('#search-input').focus();
         }
         if (event.key === 'Escape' && elements.dialog.open) elements.dialog.close();
+        if (event.key === 'Escape' && elements.staffDialog.open) elements.staffDialog.close();
     });
 }
 
