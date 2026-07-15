@@ -43,7 +43,7 @@
             <nav class="nav-list" aria-label="Main navigation">
                 <button class="nav-item active" data-section="overview"><span>⌂</span> Overview</button>
                 <button class="nav-item" data-section="calendar"><span>▦</span> Calendar</button>
-                <button class="nav-item" data-section="spreadsheet"><span>▤</span> Spreadsheet</button>
+                <button class="nav-item" data-section="spreadsheet"><span>▤</span> Roster</button>
             </nav>
             <div class="sidebar-help">
                 <div class="help-icon">?</div><b>Need help?</b>
@@ -81,7 +81,7 @@
                 <div class="workspace-toolbar">
                     <div class="view-tabs">
                         <button class="view-tab active" data-workspace-view="calendar">Calendar</button>
-                        <button class="view-tab" data-workspace-view="spreadsheet">Spreadsheet</button>
+                        <button class="view-tab" data-workspace-view="spreadsheet">Roster</button>
                     </div>
                     <div class="filter-group">
                         <label class="compact-field"><span>Team member</span><select id="user-filter"><option value="">Everyone</option></select></label>
@@ -101,13 +101,20 @@
                 </div>
 
                 <div id="spreadsheet-panel" class="hidden">
-                    <div class="sheet-meta"><p><strong>Schedule sheet</strong><span id="sheet-count">0 rows</span></p><small>Update fields directly, then select Save.</small></div>
+                    <div class="sheet-meta">
+                        <p><strong>Team roster</strong><span id="roster-count">0 staff</span></p>
+                        <div class="roster-toolbar">
+                            <div class="calendar-nav"><button id="roster-previous-week" class="icon-button" aria-label="Previous week">‹</button><button id="roster-today" class="button button-secondary button-small">This week</button><button id="roster-next-week" class="icon-button" aria-label="Next week">›</button><h2 id="roster-range-label"></h2></div>
+                            <button id="add-staff-button" class="button button-primary button-small">＋ Add staff</button>
+                        </div>
+                    </div>
+                    <div class="roster-legend" id="roster-legend"></div>
                     <div class="table-wrap">
-                        <table class="schedule-table">
-                            <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Task / Event</th><th>Description</th><th>Priority</th><th>Status</th><th>Assignee</th><th>Actions</th></tr></thead>
-                            <tbody id="schedule-rows"></tbody>
+                        <table class="roster-table">
+                            <thead><tr id="roster-head-row"><th>#</th><th>Staff ID</th><th>Full name</th><th>Position</th></tr></thead>
+                            <tbody id="roster-rows"></tbody>
                         </table>
-                        <div id="table-empty" class="empty-state hidden"><div>▤</div><h3>No schedules found</h3><p>Add a task or adjust your filters.</p></div>
+                        <div id="roster-empty" class="empty-state hidden"><div>▤</div><h3>No staff found</h3><p>Add a staff member to get started.</p></div>
                     </div>
                 </div>
             </section>
@@ -130,6 +137,21 @@
             </div>
             <p id="form-error" class="form-error" aria-live="polite"></p>
             <footer><button type="button" class="button button-secondary modal-cancel">Cancel</button><button type="submit" class="button button-primary">Save schedule</button></footer>
+        </form>
+    </dialog>
+
+    <dialog id="staff-dialog" class="modal">
+        <form id="staff-form" class="modal-card">
+            <header><div><p class="eyebrow">TEAM ROSTER</p><h2>Add staff</h2></div><button type="button" class="modal-close" aria-label="Close">×</button></header>
+            <div class="form-grid">
+                <label class="span-2">Full name<input name="name" required maxlength="255" placeholder="Staff full name"></label>
+                <label>Staff ID<input name="staff_id" maxlength="255" placeholder="e.g. AKM045"></label>
+                <label>Position<input name="position" maxlength="255" placeholder="e.g. QA Supervisor"></label>
+                <label class="span-2">Email<input name="email" type="email" required maxlength="255" placeholder="you@example.com"></label>
+                <label class="span-2">Password<input name="password" type="password" required minlength="8" placeholder="At least 8 characters"></label>
+            </div>
+            <p id="staff-form-error" class="form-error" aria-live="polite"></p>
+            <footer><button type="button" class="button button-secondary modal-cancel">Cancel</button><button type="submit" class="button button-primary">Add staff</button></footer>
         </form>
     </dialog>
 

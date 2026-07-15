@@ -20,12 +20,16 @@ class AuthController extends Controller
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
             'device_name' => ['sometimes', 'string', 'max:255'],
+            'staff_id' => ['nullable', 'string', 'max:255', 'unique:users,staff_id'],
+            'position' => ['nullable', 'string', 'max:255'],
         ]);
 
         $user = User::query()->create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => $validated['password'],
+            'staff_id' => $validated['staff_id'] ?? null,
+            'position' => $validated['position'] ?? null,
         ]);
 
         return response()->json([

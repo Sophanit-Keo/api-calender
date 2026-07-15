@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\HolidayEventController;
 use App\Http\Controllers\Api\V1\NoteController;
 use App\Http\Controllers\Api\V1\PublicHolidayController;
+use App\Http\Controllers\Api\V1\RosterController;
 use App\Http\Controllers\Api\V1\ScheduleEntryController;
 use App\Http\Controllers\Api\V1\WorkScheduleController;
 use App\Http\Middleware\AuthenticateApiToken;
@@ -41,5 +42,9 @@ Route::prefix('v1')->group(function (): void {
         Route::get('work-schedule/cycles/{cycle_start_date}', [WorkScheduleController::class, 'cycle']);
         Route::put('work-schedule/cycles/{cycle_start_date}', [WorkScheduleController::class, 'updateCycle']);
         Route::get('work-schedule/days', [WorkScheduleController::class, 'days']);
+
+        Route::get('roster', [RosterController::class, 'index']);
+        Route::put('roster/cell', [RosterController::class, 'updateCell']);
+        Route::delete('roster/staff/{user}', [RosterController::class, 'clearStaff']);
     });
 });
