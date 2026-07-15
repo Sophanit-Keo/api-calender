@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\User;
 use App\Models\WorkScheduleCycle;
 use App\Models\WorkScheduleDay;
 use App\Models\WorkScheduleSetting;
@@ -195,7 +196,7 @@ class WorkScheduleService
         for ($date = $scanFrom; $date->lte($to); $date = $date->addDay()) {
             $row = $rows->get($date->toDateString());
             $shift = $row?->shiftTemplate;
-            $shift = $shift?->user_id === $userId ? $shift : null;
+            $shift = in_array($shift?->user_id, [null, $userId], true) ? $shift : null;
             $entry = [
                 'date' => $date->toDateString(),
                 'day_offset' => $row?->day_offset,
@@ -238,11 +239,126 @@ class WorkScheduleService
             'id' => $shift->id,
             'code' => $shift->code,
             'name' => $shift->name,
-            'start_time' => substr((string) $shift->start_time, 0, 5),
-            'end_time' => substr((string) $shift->end_time, 0, 5),
+            'category' => $shift->category,
+            'color' => $shift->color,
+            'start_time' => $shift->start_time ? substr((string) $shift->start_time, 0, 5) : null,
+            'end_time' => $shift->end_time ? substr((string) $shift->end_time, 0, 5) : null,
             'sort_order' => $shift->sort_order,
-            'is_overnight' => $this->timeToMinutes((string) $shift->end_time) <= $this->timeToMinutes((string) $shift->start_time),
+            'is_overnight' => $shift->start_time && $shift->end_time
+                && $this->timeToMinutes((string) $shift->end_time) <= $this->timeToMinutes((string) $shift->start_time),
         ];
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    public function globalTemplates(): array
+    {
+        return WorkShiftTemplate::query()
+            ->whereNull('user_id')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (WorkShiftTemplate $shift): array => $this->formatShiftTemplate($shift))
+            ->values()
+            ->all();
+    }
+
+    public function rosterPayload(CarbonImmutable|string $from, CarbonImmutable|string $to): array
+    {
+        $from = $this->date($from);
+        $to = $this->date($to);
+
+        if ($to->lt($from)) {
+            throw ValidationException::withMessages([
+                'to' => 'The to date must be after or equal to the from date.',
+            ]);
+        }
+
+        if ($from->diffInDays($to) > 62) {
+            throw ValidationException::withMessages([
+                'to' => 'The date range cannot exceed 62 days.',
+            ]);
+        }
+
+        $days = WorkScheduleDay::query()
+            ->with('shiftTemplate')
+            ->whereBetween('work_date', [$from->toDateString(), $to->toDateString()])
+            ->get()
+            ->groupBy('user_id');
+
+        $staff = User::query()
+            ->select(['id', 'name', 'email', 'staff_id', 'position'])
+            ->orderByRaw('staff_id IS NULL')
+            ->orderBy('staff_id')
+            ->orderBy('name')
+            ->get()
+            ->map(function (User $user) use ($days): array {
+                $cells = [];
+
+                foreach ($days->get($user->id, collect()) as $day) {
+                    $cells[$day->work_date->format('Y-m-d')] = $day->shiftTemplate
+                        ? $this->formatShiftTemplate($day->shiftTemplate)
+                        : null;
+                }
+
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'staff_id' => $user->staff_id,
+                    'position' => $user->position,
+                    'entries' => $cells,
+                ];
+            })
+            ->values()
+            ->all();
+
+        return [
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+            'codes' => $this->globalTemplates(),
+            'staff' => $staff,
+        ];
+    }
+
+    public function updateRosterCell(int $userId, CarbonImmutable|string $workDate, ?int $shiftTemplateId): ?array
+    {
+        $date = $this->date($workDate);
+
+        if ($shiftTemplateId === null) {
+            WorkScheduleDay::query()
+                ->where('user_id', $userId)
+                ->where('work_date', $date->toDateString())
+                ->delete();
+
+            return null;
+        }
+
+        $template = WorkShiftTemplate::query()->findOrFail($shiftTemplateId);
+        $cycleStart = $this->cycleStartFor($date);
+        $cycleEnd = $this->cycleEndForStart($cycleStart);
+        $cycle = WorkScheduleCycle::query()->updateOrCreate(
+            ['user_id' => $userId, 'cycle_start_date' => $cycleStart->toDateString()],
+            ['cycle_end_date' => $cycleEnd->toDateString()],
+        );
+
+        WorkScheduleDay::query()->updateOrCreate(
+            ['user_id' => $userId, 'work_date' => $date->toDateString()],
+            [
+                'work_schedule_cycle_id' => $cycle->id,
+                'day_offset' => $cycleStart->diffInDays($date),
+                'work_shift_template_id' => $template->id,
+            ],
+        );
+
+        return $this->formatShiftTemplate($template);
+    }
+
+    public function clearRosterRange(int $userId, CarbonImmutable|string $from, CarbonImmutable|string $to): void
+    {
+        WorkScheduleDay::query()
+            ->where('user_id', $userId)
+            ->whereBetween('work_date', [$this->date($from)->toDateString(), $this->date($to)->toDateString()])
+            ->delete();
     }
 
     private function setting(int $userId): WorkScheduleSetting

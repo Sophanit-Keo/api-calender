@@ -64,9 +64,9 @@ class User extends Authenticatable
         return $this->hasMany(WorkScheduleCycle::class);
     }
 
-    public function rosterEntries(): HasMany
+    public function workScheduleDays(): HasMany
     {
-        return $this->hasMany(RosterEntry::class);
+        return $this->hasMany(WorkScheduleDay::class);
     }
 
     public function createApiToken(string $name = 'api'): string

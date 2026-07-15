@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Services\WorkScheduleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class WorkScheduleController extends Controller
 {
@@ -71,6 +73,47 @@ class WorkScheduleController extends Controller
         return response()->json([
             'data' => $this->workSchedule->materializeDays($this->targetUserId($request), $validated['from'], $validated['to']),
         ]);
+    }
+
+    public function roster(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'from' => ['required', 'date_format:Y-m-d'],
+            'to' => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
+        ]);
+
+        return response()->json([
+            'data' => $this->workSchedule->rosterPayload($validated['from'], $validated['to']),
+        ]);
+    }
+
+    public function updateRosterCell(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'work_date' => ['required', 'date_format:Y-m-d'],
+            'work_shift_template_id' => ['nullable', 'integer', 'exists:work_shift_templates,id'],
+        ]);
+
+        return response()->json([
+            'data' => $this->workSchedule->updateRosterCell(
+                $validated['user_id'],
+                $validated['work_date'],
+                $validated['work_shift_template_id'] ?? null,
+            ),
+        ]);
+    }
+
+    public function clearRosterStaff(Request $request, User $user): Response
+    {
+        $validated = $request->validate([
+            'from' => ['required', 'date_format:Y-m-d'],
+            'to' => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
+        ]);
+
+        $this->workSchedule->clearRosterRange($user->id, $validated['from'], $validated['to']);
+
+        return response()->noContent();
     }
 
     private function targetUserId(Request $request): int

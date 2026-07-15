@@ -17,7 +17,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(PublicHolidaySeeder::class);
         $this->call(BuddhistEventSeeder::class);
-        $this->call(RosterCodeSeeder::class);
+        $this->call(GlobalShiftTemplateSeeder::class);
 
         // User::factory(10)->create();
 

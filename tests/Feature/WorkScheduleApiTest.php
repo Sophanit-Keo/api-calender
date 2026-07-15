@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\User;
+use App\Models\WorkShiftTemplate;
+use Database\Seeders\GlobalShiftTemplateSeeder;
 
 it('returns and updates work schedule settings with shift templates', function (): void {
     $this->withHeaders(authHeaders());
@@ -146,4 +148,76 @@ it('lets any user view and edit another user work schedule via user_id', functio
         ->getJson('/api/v1/work-schedule/settings')
         ->assertOk()
         ->assertJsonFragment(['name' => 'Edited By User B']);
+});
+
+it('returns every user as a roster row with shared global shift codes', function (): void {
+    $this->seed(GlobalShiftTemplateSeeder::class);
+    $userA = User::factory()->create(['name' => 'Alpha', 'staff_id' => 'AKM001', 'position' => 'QA Manager']);
+    $userB = User::factory()->create(['name' => 'Beta', 'staff_id' => 'AKM002']);
+    $dayShift = WorkShiftTemplate::query()->whereNull('user_id')->where('code', '8')->firstOrFail();
+
+    $this->withHeaders(authHeaders())
+        ->putJson('/api/v1/work-schedule/roster/cell', [
+            'user_id' => $userA->id,
+            'work_date' => '2026-07-10',
+            'work_shift_template_id' => $dayShift->id,
+        ])->assertOk()
+        ->assertJsonPath('data.code', '8');
+
+    $response = $this->withHeaders(authHeaders())
+        ->getJson('/api/v1/work-schedule/roster?from=2026-07-10&to=2026-07-16')
+        ->assertOk();
+
+    $staff = collect($response->json('data.staff'));
+    expect($staff->firstWhere('id', $userA->id)['entries']['2026-07-10']['code'])->toBe('8');
+    expect($staff->firstWhere('id', $userB->id)['entries'])->not->toHaveKey('2026-07-10');
+    expect(collect($response->json('data.codes'))->pluck('code'))->toContain('AL', 'ML', '8D');
+});
+
+it('lets any authenticated user edit any other user roster cell and clear a range', function (): void {
+    $this->seed(GlobalShiftTemplateSeeder::class);
+    $owner = User::factory()->create();
+    $otherUser = User::factory()->create();
+    $leave = WorkShiftTemplate::query()->whereNull('user_id')->where('code', 'AL')->firstOrFail();
+
+    $this->withHeaders(authHeaders($otherUser))
+        ->putJson('/api/v1/work-schedule/roster/cell', [
+            'user_id' => $owner->id,
+            'work_date' => '2026-07-12',
+            'work_shift_template_id' => $leave->id,
+        ])->assertOk()
+        ->assertJsonPath('data.code', 'AL');
+
+    $this->assertDatabaseHas('work_schedule_days', [
+        'user_id' => $owner->id,
+        'work_date' => '2026-07-12',
+        'work_shift_template_id' => $leave->id,
+    ]);
+
+    $this->withHeaders(authHeaders($otherUser))
+        ->deleteJson("/api/v1/work-schedule/roster/staff/{$owner->id}?from=2026-07-12&to=2026-07-12")
+        ->assertNoContent();
+
+    $this->assertDatabaseMissing('work_schedule_days', [
+        'user_id' => $owner->id,
+        'work_date' => '2026-07-12',
+    ]);
+});
+
+it('shows roster grid assignments on the personal calendar shift overlay', function (): void {
+    $this->seed(GlobalShiftTemplateSeeder::class);
+    $owner = User::factory()->create();
+    $shift = WorkShiftTemplate::query()->whereNull('user_id')->where('code', '8N')->firstOrFail();
+
+    $this->withHeaders(authHeaders())
+        ->putJson('/api/v1/work-schedule/roster/cell', [
+            'user_id' => $owner->id,
+            'work_date' => '2026-07-14',
+            'work_shift_template_id' => $shift->id,
+        ])->assertOk();
+
+    $this->withHeaders(authHeaders($owner))
+        ->getJson('/api/v1/work-schedule/days?from=2026-07-14&to=2026-07-14')
+        ->assertOk()
+        ->assertJsonPath('data.0.shift_template.code', '8N');
 });

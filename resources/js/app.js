@@ -331,7 +331,7 @@ async function refreshRoster() {
     setLoading(true);
     const { from, to } = visibleRosterRange();
     try {
-        const payload = await api(`/roster?from=${dateKey(from)}&to=${dateKey(to)}`);
+        const payload = await api(`/work-schedule/roster?from=${dateKey(from)}&to=${dateKey(to)}`);
         state.roster.codes = payload.data.codes;
         state.roster.staff = payload.data.staff;
         state.roster.loaded = true;
@@ -350,7 +350,7 @@ function rosterDays() {
 
 function renderRosterLegend() {
     elements.rosterLegend.innerHTML = state.roster.codes.map((code) => `
-        <span><i class="dot roster-dot-${escapeHtml(code.color)}"></i>${escapeHtml(code.code)} — ${escapeHtml(code.label)}</span>
+        <span><i class="dot roster-dot-${escapeHtml(code.color)}"></i>${escapeHtml(code.code)} — ${escapeHtml(code.name)}</span>
     `).join('');
 }
 
@@ -393,12 +393,12 @@ function bindRosterInteractions() {
     elements.rosterRows.querySelectorAll('select[data-user-id]').forEach((select) => select.addEventListener('change', async () => {
         select.disabled = true;
         try {
-            await api('/roster/cell', {
+            await api('/work-schedule/roster/cell', {
                 method: 'PUT',
                 body: JSON.stringify({
                     user_id: Number(select.dataset.userId),
                     work_date: select.dataset.workDate,
-                    roster_code_id: select.value || null,
+                    work_shift_template_id: select.value || null,
                 }),
             });
             await refreshRoster();
@@ -412,7 +412,7 @@ function bindRosterInteractions() {
         if (!staff || !window.confirm(`Clear ${staff.name}’s roster for this week? This cannot be undone.`)) return;
         const { from, to } = visibleRosterRange();
         try {
-            await api(`/roster/staff/${staff.id}?from=${dateKey(from)}&to=${dateKey(to)}`, { method: 'DELETE' });
+            await api(`/work-schedule/roster/staff/${staff.id}?from=${dateKey(from)}&to=${dateKey(to)}`, { method: 'DELETE' });
             showToast(`Cleared ${staff.name}’s roster for this week.`);
             await refreshRoster();
         } catch (error) {
