@@ -11,13 +11,17 @@ class WorkShiftTemplate extends Model
 {
     use HasFactory;
 
+    public const CATEGORIES = ['shift', 'leave'];
+
     protected $fillable = [
         'user_id',
         'code',
         'name',
+        'category',
         'start_time',
         'end_time',
         'sort_order',
+        'color',
     ];
 
     protected function casts(): array
