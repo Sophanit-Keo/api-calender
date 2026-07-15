@@ -67,7 +67,7 @@ it('validates work schedule inputs', function (): void {
         ->assertUnprocessable();
 });
 
-it('isolates work schedule settings templates and cycles by authenticated user', function (): void {
+it('keeps each user default work schedule separate until another user opts in via user_id', function (): void {
     $userA = User::factory()->create();
     $userB = User::factory()->create();
 
@@ -88,32 +88,62 @@ it('isolates work schedule settings templates and cycles by authenticated user',
     $assignmentsA = array_fill(0, 31, null);
     $assignmentsA[0] = 'shared';
 
-    $assignmentsB = array_fill(0, 31, null);
-    $assignmentsB[0] = 'shared';
-
     $this->withHeaders(authHeaders($userA))
         ->putJson('/api/v1/work-schedule/cycles/2026-06-26', [
             'assignments' => $assignmentsA,
         ])->assertOk();
 
     $this->withHeaders(authHeaders($userB))
-        ->putJson('/api/v1/work-schedule/cycles/2026-06-26', [
-            'assignments' => $assignmentsB,
+        ->getJson('/api/v1/work-schedule/settings')
+        ->assertOk()
+        ->assertJsonFragment(['name' => 'User B Shift'])
+        ->assertJsonMissing(['name' => 'User A Shift']);
+});
+
+it('lets any user view and edit another user work schedule via user_id', function (): void {
+    $userA = User::factory()->create();
+    $userB = User::factory()->create();
+
+    $this->withHeaders(authHeaders($userA))
+        ->putJson('/api/v1/work-schedule/settings', [
+            'shift_templates' => [
+                ['code' => 'shared', 'name' => 'User A Shift', 'start_time' => '07:00', 'end_time' => '15:00'],
+            ],
         ])->assertOk();
 
+    // User B reads and edits User A's work schedule by targeting user_id.
+    $this->withHeaders(authHeaders($userB))
+        ->getJson("/api/v1/work-schedule/settings?user_id={$userA->id}")
+        ->assertOk()
+        ->assertJsonFragment(['name' => 'User A Shift']);
+
+    $this->withHeaders(authHeaders($userB))
+        ->putJson('/api/v1/work-schedule/settings', [
+            'user_id' => $userA->id,
+            'shift_templates' => [
+                ['code' => 'shared', 'name' => 'Edited By User B', 'start_time' => '08:00', 'end_time' => '16:00'],
+            ],
+        ])->assertOk()
+        ->assertJsonFragment(['name' => 'Edited By User B']);
+
+    $assignments = array_fill(0, 31, null);
+    $assignments[0] = 'shared';
+
+    $this->withHeaders(authHeaders($userB))
+        ->putJson('/api/v1/work-schedule/cycles/2026-06-26', [
+            'user_id' => $userA->id,
+            'assignments' => $assignments,
+        ])->assertOk()
+        ->assertJsonPath('data.assignments.0', 'shared');
+
+    $this->withHeaders(authHeaders($userB))
+        ->getJson("/api/v1/work-schedule/days?user_id={$userA->id}&from=2026-06-26&to=2026-06-26")
+        ->assertOk()
+        ->assertJsonPath('data.0.shift_template.name', 'Edited By User B');
+
+    // The edit is really User A's data, visible to User A directly too (no user_id needed).
     $this->withHeaders(authHeaders($userA))
         ->getJson('/api/v1/work-schedule/settings')
         ->assertOk()
-        ->assertJsonFragment(['name' => 'User A Shift'])
-        ->assertJsonMissing(['name' => 'User B Shift']);
-
-    $this->withHeaders(authHeaders($userA))
-        ->getJson('/api/v1/work-schedule/days?from=2026-06-26&to=2026-06-26')
-        ->assertOk()
-        ->assertJsonPath('data.0.shift_template.name', 'User A Shift');
-
-    $this->withHeaders(authHeaders($userB))
-        ->getJson('/api/v1/work-schedule/days?from=2026-06-26&to=2026-06-26')
-        ->assertOk()
-        ->assertJsonPath('data.0.shift_template.name', 'User B Shift');
+        ->assertJsonFragment(['name' => 'Edited By User B']);
 });
