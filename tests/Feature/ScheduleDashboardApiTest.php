@@ -56,7 +56,7 @@ it('creates filters updates and deletes schedule entries', function (): void {
     $this->assertDatabaseMissing('schedule_entries', ['id' => $id]);
 });
 
-it('shares assigned schedules while isolating unrelated users', function (): void {
+it('shares every schedule across every user', function (): void {
     $owner = User::factory()->create();
     $assignee = User::factory()->create();
     $outsider = User::factory()->create();
@@ -82,12 +82,23 @@ it('shares assigned schedules while isolating unrelated users', function (): voi
 
     $this->withHeaders(authHeaders($outsider))
         ->getJson("/api/v1/schedules/{$entry->id}")
-        ->assertNotFound();
+        ->assertOk()
+        ->assertJsonPath('data.id', $entry->id)
+        ->assertJsonPath('data.can_edit', true);
 
     $this->withHeaders(authHeaders($outsider))
         ->getJson('/api/v1/schedules')
         ->assertOk()
-        ->assertJsonCount(0, 'data');
+        ->assertJsonCount(1, 'data');
+
+    $this->withHeaders(authHeaders($outsider))
+        ->patchJson("/api/v1/schedules/{$entry->id}", ['status' => 'in_progress'])
+        ->assertOk()
+        ->assertJsonPath('data.status', 'in_progress');
+
+    $this->withHeaders(authHeaders($outsider))
+        ->deleteJson("/api/v1/schedules/{$entry->id}")
+        ->assertNoContent();
 });
 
 it('summarizes upcoming completed and overdue schedules', function (): void {

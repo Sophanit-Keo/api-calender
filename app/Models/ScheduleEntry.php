@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -40,12 +39,5 @@ class ScheduleEntry extends Model
     public function assignee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assignee_id');
-    }
-
-    public function scopeVisibleTo(Builder $query, int $userId): Builder
-    {
-        return $query->where(function (Builder $query) use ($userId): void {
-            $query->where('owner_id', $userId)->orWhere('assignee_id', $userId);
-        });
     }
 }

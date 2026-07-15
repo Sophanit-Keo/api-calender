@@ -45,8 +45,6 @@ class ScheduleEntryController extends Controller
 
     public function show(Request $request, ScheduleEntry $scheduleEntry): JsonResponse
     {
-        $this->authorizeVisible($request, $scheduleEntry);
-
         return response()->json([
             'data' => $this->format($scheduleEntry->load(['owner:id,name,email', 'assignee:id,name,email'])),
         ]);
@@ -54,7 +52,6 @@ class ScheduleEntryController extends Controller
 
     public function update(Request $request, ScheduleEntry $scheduleEntry): JsonResponse
     {
-        $this->authorizeEditable($request, $scheduleEntry);
         $scheduleEntry->fill($this->validatedEntry($request, true))->save();
 
         return response()->json([
@@ -64,7 +61,6 @@ class ScheduleEntryController extends Controller
 
     public function destroy(Request $request, ScheduleEntry $scheduleEntry): Response
     {
-        $this->authorizeEditable($request, $scheduleEntry);
         $scheduleEntry->delete();
 
         return response()->noContent();
@@ -186,7 +182,7 @@ class ScheduleEntryController extends Controller
 
     private function filteredQuery(Request $request, array $filters): Builder
     {
-        $query = ScheduleEntry::query()->visibleTo($request->user()->id);
+        $query = ScheduleEntry::query();
         if ($filters['date'] ?? null) {
             $query->whereDate('scheduled_date', $filters['date']);
         }
@@ -247,7 +243,7 @@ class ScheduleEntryController extends Controller
             'priority' => $entry->priority,
             'status' => $entry->status,
             'timing' => $timing,
-            'can_edit' => $entry->owner_id === request()->user()->id || $entry->assignee_id === request()->user()->id,
+            'can_edit' => true,
             'created_at' => $entry->created_at?->toIso8601String(),
             'updated_at' => $entry->updated_at?->toIso8601String(),
         ];
@@ -266,15 +262,5 @@ class ScheduleEntryController extends Controller
     private function importTime(mixed $time): ?string
     {
         return empty($time) ? null : CarbonImmutable::parse((string) $time)->format('H:i');
-    }
-
-    private function authorizeVisible(Request $request, ScheduleEntry $entry): void
-    {
-        abort_unless(in_array($request->user()->id, [$entry->owner_id, $entry->assignee_id], true), Response::HTTP_NOT_FOUND);
-    }
-
-    private function authorizeEditable(Request $request, ScheduleEntry $entry): void
-    {
-        $this->authorizeVisible($request, $entry);
     }
 }
