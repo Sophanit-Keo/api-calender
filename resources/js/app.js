@@ -11,7 +11,7 @@ const state = {
     period: 'month',
     cursor: startOfDay(new Date()),
     filters: { search: '', user_id: '', status: '', priority: '' },
-    roster: { cursor: startOfWeek(new Date()), codes: [], staff: [], loaded: false },
+    roster: { cursor: startOfDay(new Date()), codes: [], staff: [], weeks: [], from: null, to: null, loaded: false },
 };
 
 const elements = {
@@ -84,6 +84,13 @@ function escapeHtml(value = '') {
 
 function option(value, label, selectedValue) {
     return `<option value="${escapeHtml(value)}"${String(value) === String(selectedValue ?? '') ? ' selected' : ''}>${escapeHtml(label)}</option>`;
+}
+
+function rosterCellOptions(cell) {
+    const globalOptions = state.roster.codes.map((code) => option(code.id, code.code, cell?.id)).join('');
+    const isGlobal = cell ? state.roster.codes.some((code) => code.id === cell.id) : true;
+    const personalOption = cell && !isGlobal ? option(cell.id, cell.code, cell.id) : '';
+    return '<option value="">—</option>' + globalOptions + personalOption;
 }
 
 function filtersQuery() {
@@ -322,18 +329,24 @@ function bindCalendarInteractions() {
     });
 }
 
-function visibleRosterRange() {
-    const from = state.roster.cursor;
-    return { from, to: addDays(from, 6) };
+function shiftMonths(date, months) {
+    // state.roster.cursor is always pinned to the 26th (the cycle anchor), which
+    // exists in every month, so this never needs the day-clamping addMonths() does.
+    const value = new Date(date);
+    value.setMonth(value.getMonth() + months);
+    return value;
 }
 
 async function refreshRoster() {
     setLoading(true);
-    const { from, to } = visibleRosterRange();
     try {
-        const payload = await api(`/work-schedule/roster?from=${dateKey(from)}&to=${dateKey(to)}`);
+        const payload = await api(`/work-schedule/roster?date=${dateKey(state.roster.cursor)}`);
         state.roster.codes = payload.data.codes;
         state.roster.staff = payload.data.staff;
+        state.roster.weeks = payload.data.weeks;
+        state.roster.from = localDate(payload.data.from);
+        state.roster.to = localDate(payload.data.to);
+        state.roster.cursor = state.roster.from;
         state.roster.loaded = true;
         renderRoster();
     } catch (error) {
@@ -344,8 +357,7 @@ async function refreshRoster() {
 }
 
 function rosterDays() {
-    const { from } = visibleRosterRange();
-    return Array.from({ length: 7 }, (_, index) => addDays(from, index));
+    return state.roster.weeks.flatMap((week) => week.dates.map((date) => localDate(date)));
 }
 
 function renderRosterLegend() {
@@ -356,10 +368,17 @@ function renderRosterLegend() {
 
 function renderRosterHead() {
     const days = rosterDays();
-    const { from, to } = visibleRosterRange();
+    const { from, to } = state.roster;
     document.querySelector('#roster-range-label').textContent = `${from.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${to.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
-    const dayHeaders = days.map((day) => `<th class="${sameDay(day, new Date()) ? 'roster-today' : ''}">${escapeHtml(day.toLocaleDateString(undefined, { weekday: 'short' }))}<small>${day.getDate()}</small></th>`).join('');
-    elements.rosterHeadRow.innerHTML = '<th>#</th><th>Staff ID</th><th>Full name</th><th>Position</th>' + dayHeaders + '<th>Actions</th>';
+    const weekStarts = new Set(state.roster.weeks.map((week) => week.from));
+    const weekLabels = new Map(state.roster.weeks.map((week) => [week.from, week.label]));
+    const dayHeaders = days.map((day) => {
+        const key = dateKey(day);
+        const weekMarker = weekStarts.has(key) ? `<span class="roster-week-label">${escapeHtml(weekLabels.get(key))}</span>` : '';
+        return `<th class="${sameDay(day, new Date()) ? 'roster-today' : ''}${weekStarts.has(key) ? ' roster-week-start' : ''}">${weekMarker}${escapeHtml(day.toLocaleDateString(undefined, { weekday: 'short' }))}<small>${day.getDate()}</small></th>`;
+    }).join('');
+    elements.rosterHeadRow.innerHTML = '<th>#</th><th>Staff ID</th><th>Full name</th><th>Position</th><th>Group</th>' + dayHeaders + '<th>Actions</th>';
+    document.querySelector('.roster-table').style.minWidth = `${611 + days.length * 68}px`;
 }
 
 function renderRoster() {
@@ -374,22 +393,44 @@ function renderRoster() {
             const key = dateKey(day);
             const cell = staff.entries[key] || null;
             const colorClass = cell ? `roster-cell-${escapeHtml(cell.color)}` : '';
-            const options = '<option value="">—</option>' + state.roster.codes.map((code) => option(code.id, code.code, cell?.id)).join('');
+            const options = rosterCellOptions(cell);
             return `<td class="roster-cell ${colorClass}"><select data-user-id="${staff.id}" data-work-date="${key}" aria-label="${escapeHtml(staff.name)} on ${key}">${options}</select></td>`;
         }).join('');
         return `<tr data-staff-id="${staff.id}">
             <td>${index + 1}</td>
-            <td>${escapeHtml(staff.staff_id || '—')}</td>
+            <td><input class="roster-inline-input" type="text" data-field="staff_id" value="${escapeHtml(staff.staff_id || '')}" placeholder="—" aria-label="${escapeHtml(staff.name)} staff ID" maxlength="255"></td>
             <td>${escapeHtml(staff.name)}</td>
-            <td>${escapeHtml(staff.position || '—')}</td>
+            <td><input class="roster-inline-input" type="text" data-field="position" value="${escapeHtml(staff.position || '')}" placeholder="—" aria-label="${escapeHtml(staff.name)} position" maxlength="255"></td>
+            <td><input class="roster-inline-input" type="text" data-field="group" value="${escapeHtml(staff.group || '')}" placeholder="—" aria-label="${escapeHtml(staff.name)} group" maxlength="255"></td>
             ${cells}
-            <td><button class="sheet-action delete" data-clear-staff="${staff.id}" title="Clear this staff member's week">×</button></td>
+            <td><button class="sheet-action delete" data-clear-staff="${staff.id}" title="Clear this staff member's month">×</button></td>
         </tr>`;
     }).join('');
     bindRosterInteractions();
 }
 
 function bindRosterInteractions() {
+    elements.rosterRows.querySelectorAll('input.roster-inline-input').forEach((input) => input.addEventListener('change', async () => {
+        const row = input.closest('tr');
+        const userId = Number(row.dataset.staffId);
+        const payload = {
+            staff_id: row.querySelector('[data-field="staff_id"]').value.trim() || null,
+            position: row.querySelector('[data-field="position"]').value.trim() || null,
+            group: row.querySelector('[data-field="group"]').value.trim() || null,
+        };
+        input.disabled = true;
+        try {
+            await api(`/work-schedule/roster/staff/${userId}`, { method: 'PUT', body: JSON.stringify(payload) });
+            const staff = state.roster.staff.find((item) => item.id === userId);
+            if (staff) Object.assign(staff, payload);
+            showToast('Staff details updated.');
+        } catch (error) {
+            showToast(error.message, 'error');
+            await refreshRoster();
+        } finally {
+            input.disabled = false;
+        }
+    }));
     elements.rosterRows.querySelectorAll('select[data-user-id]').forEach((select) => select.addEventListener('change', async () => {
         select.disabled = true;
         try {
@@ -409,11 +450,10 @@ function bindRosterInteractions() {
     }));
     elements.rosterRows.querySelectorAll('[data-clear-staff]').forEach((button) => button.addEventListener('click', async () => {
         const staff = state.roster.staff.find((item) => item.id === Number(button.dataset.clearStaff));
-        if (!staff || !window.confirm(`Clear ${staff.name}’s roster for this week? This cannot be undone.`)) return;
-        const { from, to } = visibleRosterRange();
+        if (!staff || !window.confirm(`Clear ${staff.name}’s roster for this month? This cannot be undone.`)) return;
         try {
-            await api(`/work-schedule/roster/staff/${staff.id}?from=${dateKey(from)}&to=${dateKey(to)}`, { method: 'DELETE' });
-            showToast(`Cleared ${staff.name}’s roster for this week.`);
+            await api(`/work-schedule/roster/staff/${staff.id}?from=${dateKey(state.roster.from)}&to=${dateKey(state.roster.to)}`, { method: 'DELETE' });
+            showToast(`Cleared ${staff.name}’s roster for this month.`);
             await refreshRoster();
         } catch (error) {
             showToast(error.message, 'error');
@@ -599,9 +639,9 @@ function bindEvents() {
     elements.staffDialog.querySelector('.modal-close').addEventListener('click', () => elements.staffDialog.close());
     elements.staffDialog.querySelector('.modal-cancel').addEventListener('click', () => elements.staffDialog.close());
     elements.staffDialog.addEventListener('click', (event) => { if (event.target === elements.staffDialog) elements.staffDialog.close(); });
-    document.querySelector('#roster-today').addEventListener('click', async () => { state.roster.cursor = startOfWeek(new Date()); await refreshRoster(); });
-    document.querySelector('#roster-previous-week').addEventListener('click', async () => { state.roster.cursor = addDays(state.roster.cursor, -7); await refreshRoster(); });
-    document.querySelector('#roster-next-week').addEventListener('click', async () => { state.roster.cursor = addDays(state.roster.cursor, 7); await refreshRoster(); });
+    document.querySelector('#roster-today').addEventListener('click', async () => { state.roster.cursor = startOfDay(new Date()); await refreshRoster(); });
+    document.querySelector('#roster-previous-week').addEventListener('click', async () => { state.roster.cursor = shiftMonths(state.roster.cursor, -1); await refreshRoster(); });
+    document.querySelector('#roster-next-week').addEventListener('click', async () => { state.roster.cursor = shiftMonths(state.roster.cursor, 1); await refreshRoster(); });
     document.querySelector('#export-button').addEventListener('click', exportSchedules);
     document.querySelector('#import-button').addEventListener('click', () => document.querySelector('#import-file').click());
     document.querySelector('#import-file').addEventListener('change', (event) => importSchedules(event.target.files[0]));

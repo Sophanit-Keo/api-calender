@@ -104,14 +104,14 @@
                     <div class="sheet-meta">
                         <p><strong>Team roster</strong><span id="roster-count">0 staff</span></p>
                         <div class="roster-toolbar">
-                            <div class="calendar-nav"><button id="roster-previous-week" class="icon-button" aria-label="Previous week">‹</button><button id="roster-today" class="button button-secondary button-small">This week</button><button id="roster-next-week" class="icon-button" aria-label="Next week">›</button><h2 id="roster-range-label"></h2></div>
+                            <div class="calendar-nav"><button id="roster-previous-week" class="icon-button" aria-label="Previous month">‹</button><button id="roster-today" class="button button-secondary button-small">This month</button><button id="roster-next-week" class="icon-button" aria-label="Next month">›</button><h2 id="roster-range-label"></h2></div>
                             <button id="add-staff-button" class="button button-primary button-small">＋ Add staff</button>
                         </div>
                     </div>
                     <div class="roster-legend" id="roster-legend"></div>
                     <div class="table-wrap">
                         <table class="roster-table">
-                            <thead><tr id="roster-head-row"><th>#</th><th>Staff ID</th><th>Full name</th><th>Position</th></tr></thead>
+                            <thead><tr id="roster-head-row"><th>#</th><th>Staff ID</th><th>Full name</th><th>Position</th><th>Group</th></tr></thead>
                             <tbody id="roster-rows"></tbody>
                         </table>
                         <div id="roster-empty" class="empty-state hidden"><div>▤</div><h3>No staff found</h3><p>Add a staff member to get started.</p></div>
@@ -147,6 +147,7 @@
                 <label class="span-2">Full name<input name="name" required maxlength="255" placeholder="Staff full name"></label>
                 <label>Staff ID<input name="staff_id" maxlength="255" placeholder="e.g. AKM045"></label>
                 <label>Position<input name="position" maxlength="255" placeholder="e.g. QA Supervisor"></label>
+                <label>Group<input name="group" maxlength="255" placeholder="e.g. ICU"></label>
                 <label class="span-2">Email<input name="email" type="email" required maxlength="255" placeholder="you@example.com"></label>
                 <label class="span-2">Password<input name="password" type="password" required minlength="8" placeholder="At least 8 characters"></label>
             </div>

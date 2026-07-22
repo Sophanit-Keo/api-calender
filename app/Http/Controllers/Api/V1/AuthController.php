@@ -22,6 +22,7 @@ class AuthController extends Controller
             'device_name' => ['sometimes', 'string', 'max:255'],
             'staff_id' => ['nullable', 'string', 'max:255', 'unique:users,staff_id'],
             'position' => ['nullable', 'string', 'max:255'],
+            'group' => ['nullable', 'string', 'max:255'],
         ]);
 
         $user = User::query()->create([
@@ -30,6 +31,7 @@ class AuthController extends Controller
             'password' => $validated['password'],
             'staff_id' => $validated['staff_id'] ?? null,
             'position' => $validated['position'] ?? null,
+            'group' => $validated['group'] ?? null,
         ]);
 
         return response()->json([

@@ -24,7 +24,7 @@ it('returns a day view with database overlays', function (): void {
     ])->assertCreated();
 
     $assignments = array_fill(0, 31, null);
-    $assignments[1] = 'day';
+    $assignments[1] = '12';
 
     $this->putJson('/api/v1/work-schedule/cycles/2026-06-26', [
         'assignments' => $assignments,
@@ -36,7 +36,7 @@ it('returns a day view with database overlays', function (): void {
         ->assertJsonPath('data.notes.0.text', 'Prepare calendar API homework')
         ->assertJsonPath('data.events.0.title', 'Class demo')
         ->assertJsonPath('data.holiday_events.0.name_en', 'School Holiday')
-        ->assertJsonPath('data.work_shift.shift_template.code', 'day');
+        ->assertJsonPath('data.work_shift.shift_template.code', '12');
 
     expect($response->json('data.calendar.lunar_day'))->toBeBetween(1, 15);
 });

@@ -31,8 +31,8 @@ class WorkScheduleService
             ],
             'shift_templates' => WorkShiftTemplate::query()
                 ->where('user_id', $userId)
-                ->orderBy('sort_order')
-                ->orderBy('id')
+                ->orderBy('sort_order', 'asc')
+                ->orderBy('id', 'asc')
                 ->get()
                 ->map(fn (WorkShiftTemplate $shift): array => $this->formatShiftTemplate($shift))
                 ->values(),
@@ -254,8 +254,8 @@ class WorkScheduleService
     {
         return WorkShiftTemplate::query()
             ->whereNull('user_id')
-            ->orderBy('sort_order')
-            ->orderBy('id')
+            ->orderBy('sort_order', 'asc')
+            ->orderBy('id', 'asc')
             ->get()
             ->map(fn (WorkShiftTemplate $shift): array => $this->formatShiftTemplate($shift))
             ->values()
@@ -279,17 +279,29 @@ class WorkScheduleService
             ]);
         }
 
+        return [
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+            'codes' => $this->globalTemplates(),
+            'weeks' => $this->weekChunks($from, $to),
+            'staff' => $this->staffGrid($from, $to),
+        ];
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function staffGrid(CarbonImmutable $from, CarbonImmutable $to): array
+    {
         $days = WorkScheduleDay::query()
             ->with('shiftTemplate')
             ->whereBetween('work_date', [$from->toDateString(), $to->toDateString()])
             ->get()
             ->groupBy('user_id');
 
-        $staff = User::query()
-            ->select(['id', 'name', 'email', 'staff_id', 'position'])
+        return User::query()
+            ->select(['id', 'name', 'email', 'staff_id', 'position', 'group'])
             ->orderByRaw('staff_id IS NULL')
-            ->orderBy('staff_id')
-            ->orderBy('name')
+            ->orderBy('staff_id', 'asc')
+            ->orderBy('name', 'asc')
             ->get()
             ->map(function (User $user) use ($days): array {
                 $cells = [];
@@ -306,18 +318,50 @@ class WorkScheduleService
                     'email' => $user->email,
                     'staff_id' => $user->staff_id,
                     'position' => $user->position,
+                    'group' => $user->group,
                     'entries' => $cells,
                 ];
             })
             ->values()
             ->all();
+    }
 
-        return [
-            'from' => $from->toDateString(),
-            'to' => $to->toDateString(),
-            'codes' => $this->globalTemplates(),
-            'staff' => $staff,
-        ];
+    /** @return array<int, array<string, mixed>> */
+    private function weekChunks(CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $dates = [];
+
+        for ($date = $from; $date->lte($to); $date = $date->addDay()) {
+            $dates[] = $date->toDateString();
+        }
+
+        $chunks = [];
+        $offset = 0;
+        $total = count($dates);
+
+        for ($i = 0; $i < 3 && $offset < $total; $i++) {
+            $chunks[] = array_slice($dates, $offset, 7);
+            $offset += 7;
+        }
+
+        if ($offset < $total) {
+            $chunks[] = array_slice($dates, $offset);
+        }
+
+        return array_values(array_map(fn (array $chunkDates, int $index): array => [
+            'label' => 'Week '.($index + 1),
+            'from' => $chunkDates[0],
+            'to' => $chunkDates[count($chunkDates) - 1],
+            'dates' => $chunkDates,
+        ], $chunks, array_keys($chunks)));
+    }
+
+    public function findShiftByCode(string $code): ?WorkShiftTemplate
+    {
+        return WorkShiftTemplate::query()
+            ->whereNull('user_id')
+            ->whereRaw('LOWER(code) = ?', [strtolower($code)])
+            ->first();
     }
 
     public function updateRosterCell(int $userId, CarbonImmutable|string $workDate, ?int $shiftTemplateId): ?array
@@ -353,11 +397,66 @@ class WorkScheduleService
         return $this->formatShiftTemplate($template);
     }
 
+    public function updateStaffProfile(User $user, array $data): array
+    {
+        $user->fill([
+            'staff_id' => array_key_exists('staff_id', $data) ? $data['staff_id'] : $user->staff_id,
+            'position' => array_key_exists('position', $data) ? $data['position'] : $user->position,
+            'group' => array_key_exists('group', $data) ? $data['group'] : $user->group,
+        ])->save();
+
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'staff_id' => $user->staff_id,
+            'position' => $user->position,
+            'group' => $user->group,
+        ];
+    }
+
+    public function workingOnDate(CarbonImmutable|string $date): array
+    {
+        $date = $this->date($date);
+
+        $shifts = WorkScheduleDay::query()
+            ->whereDate('work_date', $date->toDateString())
+            ->whereNotNull('work_shift_template_id')
+            ->with(['shiftTemplate', 'user'])
+            ->get()
+            ->groupBy('work_shift_template_id')
+            ->map(function ($days): array {
+                $shift = $days->first()->shiftTemplate;
+
+                return [
+                    'shift_template' => $this->formatShiftTemplate($shift),
+                    'staff' => $days
+                        ->map(fn (WorkScheduleDay $day): array => [
+                            'id' => $day->user->id,
+                            'name' => $day->user->name,
+                            'staff_id' => $day->user->staff_id,
+                            'position' => $day->user->position,
+                            'group' => $day->user->group,
+                        ])
+                        ->values()
+                        ->all(),
+                ];
+            })
+            ->sortBy(fn (array $entry): int => $entry['shift_template']['sort_order'])
+            ->values()
+            ->all();
+
+        return [
+            'date' => $date->toDateString(),
+            'shifts' => $shifts,
+        ];
+    }
+
     public function clearRosterRange(int $userId, CarbonImmutable|string $from, CarbonImmutable|string $to): void
     {
         WorkScheduleDay::query()
             ->where('user_id', $userId)
-            ->whereBetween('work_date', [$this->date($from)->toDateString(), $this->date($to)->toDateString()])
+            ->whereBetween('work_date', [$this->date($from)->toDateString(), $this->date($to)->toDateString()], 'and')
             ->delete();
     }
 
@@ -381,7 +480,7 @@ class WorkScheduleService
 
         WorkShiftTemplate::query()->create([
             'user_id' => $userId,
-            'code' => 'day',
+            'code' => '12',
             'name' => 'Day',
             'start_time' => '07:30:00',
             'end_time' => '19:30:00',
@@ -390,7 +489,7 @@ class WorkScheduleService
 
         WorkShiftTemplate::query()->create([
             'user_id' => $userId,
-            'code' => 'night',
+            'code' => '12N',
             'name' => 'Night',
             'start_time' => '19:30:00',
             'end_time' => '07:30:00',
