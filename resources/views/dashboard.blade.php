@@ -111,7 +111,7 @@
                     <div class="roster-legend" id="roster-legend"></div>
                     <div class="table-wrap">
                         <table class="roster-table">
-                            <thead><tr id="roster-head-row"><th>#</th><th>Staff ID</th><th>Full name</th><th>Position</th></tr></thead>
+                            <thead><tr id="roster-head-row"><th>#</th><th>Staff ID</th><th>Full name</th><th>Position</th><th>Group</th></tr></thead>
                             <tbody id="roster-rows"></tbody>
                         </table>
                         <div id="roster-empty" class="empty-state hidden"><div>▤</div><h3>No staff found</h3><p>Add a staff member to get started.</p></div>
@@ -147,6 +147,7 @@
                 <label class="span-2">Full name<input name="name" required maxlength="255" placeholder="Staff full name"></label>
                 <label>Staff ID<input name="staff_id" maxlength="255" placeholder="e.g. AKM045"></label>
                 <label>Position<input name="position" maxlength="255" placeholder="e.g. QA Supervisor"></label>
+                <label>Group<input name="group" maxlength="255" placeholder="e.g. ICU"></label>
                 <label class="span-2">Email<input name="email" type="email" required maxlength="255" placeholder="you@example.com"></label>
                 <label class="span-2">Password<input name="password" type="password" required minlength="8" placeholder="At least 8 characters"></label>
             </div>

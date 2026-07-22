@@ -359,7 +359,7 @@ function renderRosterHead() {
     const { from, to } = visibleRosterRange();
     document.querySelector('#roster-range-label').textContent = `${from.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${to.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
     const dayHeaders = days.map((day) => `<th class="${sameDay(day, new Date()) ? 'roster-today' : ''}">${escapeHtml(day.toLocaleDateString(undefined, { weekday: 'short' }))}<small>${day.getDate()}</small></th>`).join('');
-    elements.rosterHeadRow.innerHTML = '<th>#</th><th>Staff ID</th><th>Full name</th><th>Position</th>' + dayHeaders + '<th>Actions</th>';
+    elements.rosterHeadRow.innerHTML = '<th>#</th><th>Staff ID</th><th>Full name</th><th>Position</th><th>Group</th>' + dayHeaders + '<th>Actions</th>';
 }
 
 function renderRoster() {
@@ -379,9 +379,10 @@ function renderRoster() {
         }).join('');
         return `<tr data-staff-id="${staff.id}">
             <td>${index + 1}</td>
-            <td>${escapeHtml(staff.staff_id || '—')}</td>
+            <td><input class="roster-inline-input" type="text" data-field="staff_id" value="${escapeHtml(staff.staff_id || '')}" placeholder="—" aria-label="${escapeHtml(staff.name)} staff ID" maxlength="255"></td>
             <td>${escapeHtml(staff.name)}</td>
-            <td>${escapeHtml(staff.position || '—')}</td>
+            <td><input class="roster-inline-input" type="text" data-field="position" value="${escapeHtml(staff.position || '')}" placeholder="—" aria-label="${escapeHtml(staff.name)} position" maxlength="255"></td>
+            <td><input class="roster-inline-input" type="text" data-field="group" value="${escapeHtml(staff.group || '')}" placeholder="—" aria-label="${escapeHtml(staff.name)} group" maxlength="255"></td>
             ${cells}
             <td><button class="sheet-action delete" data-clear-staff="${staff.id}" title="Clear this staff member's week">×</button></td>
         </tr>`;
@@ -390,6 +391,27 @@ function renderRoster() {
 }
 
 function bindRosterInteractions() {
+    elements.rosterRows.querySelectorAll('input.roster-inline-input').forEach((input) => input.addEventListener('change', async () => {
+        const row = input.closest('tr');
+        const userId = Number(row.dataset.staffId);
+        const payload = {
+            staff_id: row.querySelector('[data-field="staff_id"]').value.trim() || null,
+            position: row.querySelector('[data-field="position"]').value.trim() || null,
+            group: row.querySelector('[data-field="group"]').value.trim() || null,
+        };
+        input.disabled = true;
+        try {
+            await api(`/work-schedule/roster/staff/${userId}`, { method: 'PUT', body: JSON.stringify(payload) });
+            const staff = state.roster.staff.find((item) => item.id === userId);
+            if (staff) Object.assign(staff, payload);
+            showToast('Staff details updated.');
+        } catch (error) {
+            showToast(error.message, 'error');
+            await refreshRoster();
+        } finally {
+            input.disabled = false;
+        }
+    }));
     elements.rosterRows.querySelectorAll('select[data-user-id]').forEach((select) => select.addEventListener('change', async () => {
         select.disabled = true;
         try {
