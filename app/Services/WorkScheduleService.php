@@ -480,7 +480,7 @@ class WorkScheduleService
 
         WorkShiftTemplate::query()->create([
             'user_id' => $userId,
-            'code' => 'day',
+            'code' => '12',
             'name' => 'Day',
             'start_time' => '07:30:00',
             'end_time' => '19:30:00',
@@ -489,7 +489,7 @@ class WorkScheduleService
 
         WorkShiftTemplate::query()->create([
             'user_id' => $userId,
-            'code' => 'night',
+            'code' => '12N',
             'name' => 'Night',
             'start_time' => '19:30:00',
             'end_time' => '07:30:00',

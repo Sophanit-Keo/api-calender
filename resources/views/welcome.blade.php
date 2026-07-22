@@ -1002,7 +1002,7 @@ php artisan db:seed --class=BuddhistEventSeeder</code></pre>
   -H "Authorization: Bearer &lt;token&gt;" \
   -d '{
     "assignments": [
-      "night", "day", null, null, null, null, null,
+      "12N", "12", null, null, null, null, null,
       null, null, null, null, null, null, null, null,
       null, null, null, null, null, null, null, null,
       null, null, null, null, null, null, null, null

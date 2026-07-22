@@ -11,7 +11,7 @@ it('returns and updates work schedule settings with shift templates', function (
     $this->getJson('/api/v1/work-schedule/settings')
         ->assertOk()
         ->assertJsonPath('data.settings.system_type', 2)
-        ->assertJsonPath('data.shift_templates.0.code', 'day');
+        ->assertJsonPath('data.shift_templates.0.code', '12');
 
     $response = $this->putJson('/api/v1/work-schedule/settings', [
         'system_type' => 3,
@@ -33,15 +33,15 @@ it('saves 26th anchored cycles and materializes blocked overnight work days', fu
     $this->withHeaders(authHeaders());
 
     $assignments = array_fill(0, 31, null);
-    $assignments[0] = 'night';
-    $assignments[1] = 'day';
+    $assignments[0] = '12N';
+    $assignments[1] = '12';
 
     $this->putJson('/api/v1/work-schedule/cycles/2026-06-26', [
         'assignments' => $assignments,
     ])->assertOk()
         ->assertJsonPath('data.cycle_start_date', '2026-06-26')
-        ->assertJsonPath('data.assignments.0', 'night')
-        ->assertJsonPath('data.assignments.1', 'day');
+        ->assertJsonPath('data.assignments.0', '12N')
+        ->assertJsonPath('data.assignments.1', '12');
 
     $this->getJson('/api/v1/work-schedule/cycles/2026-06-26')
         ->assertOk()
@@ -49,9 +49,9 @@ it('saves 26th anchored cycles and materializes blocked overnight work days', fu
 
     $this->getJson('/api/v1/work-schedule/days?from=2026-06-26&to=2026-06-27')
         ->assertOk()
-        ->assertJsonPath('data.0.shift_template.code', 'night')
+        ->assertJsonPath('data.0.shift_template.code', '12N')
         ->assertJsonPath('data.0.blocked', false)
-        ->assertJsonPath('data.1.shift_template.code', 'day')
+        ->assertJsonPath('data.1.shift_template.code', '12')
         ->assertJsonPath('data.1.blocked', true);
 });
 
@@ -59,7 +59,7 @@ it('validates work schedule inputs', function (): void {
     $this->withHeaders(authHeaders());
 
     $this->putJson('/api/v1/work-schedule/cycles/2026-06-25', [
-        'assignments' => ['day'],
+        'assignments' => ['12'],
     ])->assertUnprocessable();
 
     $this->putJson('/api/v1/work-schedule/settings', [
@@ -180,20 +180,20 @@ it('surfaces a per-user cycle shift in the roster grid even though it is absent 
     $staff = User::factory()->create(['staff_id' => 'AKM099']);
 
     $assignments = array_fill(0, 31, null);
-    $assignments[0] = 'day';
+    $assignments[0] = '12';
 
     $this->withHeaders(authHeaders($staff))
         ->putJson('/api/v1/work-schedule/cycles/2026-06-26', ['assignments' => $assignments])
         ->assertOk();
 
-    $personalDay = WorkShiftTemplate::query()->where('user_id', $staff->id)->where('code', 'day')->firstOrFail();
+    $personalDay = WorkShiftTemplate::query()->where('user_id', $staff->id)->where('code', '12')->firstOrFail();
 
     $response = $this->withHeaders(authHeaders())
         ->getJson('/api/v1/work-schedule/roster?from=2026-06-26&to=2026-07-02')
         ->assertOk();
 
     $entry = collect($response->json('data.staff'))->firstWhere('id', $staff->id)['entries']['2026-06-26'];
-    expect($entry['id'])->toBe($personalDay->id)->and($entry['code'])->toBe('day');
+    expect($entry['id'])->toBe($personalDay->id)->and($entry['code'])->toBe('12');
     expect(collect($response->json('data.codes'))->pluck('id'))->not->toContain($personalDay->id);
 });
 
