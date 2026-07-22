@@ -86,6 +86,13 @@ function option(value, label, selectedValue) {
     return `<option value="${escapeHtml(value)}"${String(value) === String(selectedValue ?? '') ? ' selected' : ''}>${escapeHtml(label)}</option>`;
 }
 
+function rosterCellOptions(cell) {
+    const globalOptions = state.roster.codes.map((code) => option(code.id, code.code, cell?.id)).join('');
+    const isGlobal = cell ? state.roster.codes.some((code) => code.id === cell.id) : true;
+    const personalOption = cell && !isGlobal ? option(cell.id, `${cell.code} (personal)`, cell.id) : '';
+    return '<option value="">—</option>' + globalOptions + personalOption;
+}
+
 function filtersQuery() {
     const params = new URLSearchParams();
     Object.entries(state.filters).forEach(([key, value]) => value && params.set(key, value));
@@ -386,7 +393,7 @@ function renderRoster() {
             const key = dateKey(day);
             const cell = staff.entries[key] || null;
             const colorClass = cell ? `roster-cell-${escapeHtml(cell.color)}` : '';
-            const options = '<option value="">—</option>' + state.roster.codes.map((code) => option(code.id, code.code, cell?.id)).join('');
+            const options = rosterCellOptions(cell);
             return `<td class="roster-cell ${colorClass}"><select data-user-id="${staff.id}" data-work-date="${key}" aria-label="${escapeHtml(staff.name)} on ${key}">${options}</select></td>`;
         }).join('');
         return `<tr data-staff-id="${staff.id}">

@@ -175,6 +175,28 @@ it('returns every user as a roster row with shared global shift codes', function
     expect(collect($response->json('data.codes'))->pluck('code'))->toContain('AL', 'ML', '8D');
 });
 
+it('surfaces a per-user cycle shift in the roster grid even though it is absent from global codes', function (): void {
+    $this->seed(GlobalShiftTemplateSeeder::class);
+    $staff = User::factory()->create(['staff_id' => 'AKM099']);
+
+    $assignments = array_fill(0, 31, null);
+    $assignments[0] = 'day';
+
+    $this->withHeaders(authHeaders($staff))
+        ->putJson('/api/v1/work-schedule/cycles/2026-06-26', ['assignments' => $assignments])
+        ->assertOk();
+
+    $personalDay = WorkShiftTemplate::query()->where('user_id', $staff->id)->where('code', 'day')->firstOrFail();
+
+    $response = $this->withHeaders(authHeaders())
+        ->getJson('/api/v1/work-schedule/roster?from=2026-06-26&to=2026-07-02')
+        ->assertOk();
+
+    $entry = collect($response->json('data.staff'))->firstWhere('id', $staff->id)['entries']['2026-06-26'];
+    expect($entry['id'])->toBe($personalDay->id)->and($entry['code'])->toBe('day');
+    expect(collect($response->json('data.codes'))->pluck('id'))->not->toContain($personalDay->id);
+});
+
 it('lets any authenticated user edit any other user roster cell and clear a range', function (): void {
     $this->seed(GlobalShiftTemplateSeeder::class);
     $owner = User::factory()->create();
