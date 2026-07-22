@@ -746,6 +746,23 @@ php artisan db:seed --class=BuddhistEventSeeder</code></pre>
                             </div>
                         </div>
 
+                        <div class="table-wrap" aria-label="Register request fields">
+                            <table>
+                                <thead>
+                                    <tr><th>Field</th><th>Required</th><th>Description</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td><code>name</code></td><td>Yes</td><td>Maximum 255 characters.</td></tr>
+                                    <tr><td><code>email</code></td><td>Yes</td><td>Must be unique across users.</td></tr>
+                                    <tr><td><code>password</code></td><td>Yes</td><td>Minimum 8 characters.</td></tr>
+                                    <tr><td><code>device_name</code></td><td>No</td><td>Labels the issued token. Defaults to <code>api</code>.</td></tr>
+                                    <tr><td><code>staff_id</code></td><td>No</td><td>Must be unique across users when provided.</td></tr>
+                                    <tr><td><code>position</code></td><td>No</td><td>Maximum 255 characters, e.g. job title.</td></tr>
+                                    <tr><td><code>group</code></td><td>No</td><td>Maximum 255 characters, e.g. team or department.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
                         <h3>Login request</h3>
                         <pre><code>curl -X POST "{{ $baseUrl }}/auth/login" \
   -H "Content-Type: application/json" \
@@ -880,11 +897,36 @@ php artisan db:seed --class=BuddhistEventSeeder</code></pre>
 
                         <h3>Work Schedule</h3>
                         <div class="endpoint-group">
-                            <div class="endpoint"><span class="method get">GET</span><div><code>/work-schedule/settings</code><p>Return user settings and shift templates. Default day/night templates are created automatically for each user.</p></div></div>
+                            <div class="endpoint"><span class="method get">GET</span><div><code>/work-schedule/settings</code><p>Return user settings and shift templates. Default 12/12N templates are created automatically for each user.</p></div></div>
                             <div class="endpoint"><span class="method put">PUT</span><div><code>/work-schedule/settings</code><p>Update schedule settings and upsert shift templates by code.</p></div></div>
                             <div class="endpoint"><span class="method get">GET</span><div><code>/work-schedule/cycles/2026-06-26</code><p>Return one 26th-anchored cycle and its assignments.</p></div></div>
                             <div class="endpoint"><span class="method put">PUT</span><div><code>/work-schedule/cycles/2026-06-26</code><p>Save up to 31 assignments using shift template code, template id, or null for day off.</p></div></div>
                             <div class="endpoint"><span class="method get">GET</span><div><code>/work-schedule/days?from=2026-06-26&amp;to=2026-06-30</code><p>Materialize actual dates, shift start/end date-times, and blocked status.</p></div></div>
+                            <div class="endpoint"><span class="method get">GET</span><div><code>/work-schedule/today</code><p>Return everyone with a shift assigned on one date (default today), grouped by shift.</p></div></div>
+                            <div class="endpoint"><span class="method get">GET</span><div><code>/work-schedule/roster</code><p>Return every staff member's shift grid. Pass <code class="inline-code">from</code>+<code class="inline-code">to</code> for an explicit range, or <code class="inline-code">date</code> (or nothing, for today) to get the 26th-to-25th monthly cycle containing that date, split into <code class="inline-code">weeks</code>.</p></div></div>
+                            <div class="endpoint"><span class="method get">GET</span><div><code>/work-schedule/roster/export</code><p>Download the roster as CSV for <code class="inline-code">period=week</code> or <code class="inline-code">period=month</code> (default month) containing <code class="inline-code">date</code> (default today).</p></div></div>
+                            <div class="endpoint"><span class="method post">POST</span><div><code>/work-schedule/roster/import</code><p>Upload a roster CSV (same column layout as export) to bulk-assign shifts. Non-blank cells overwrite any existing assignment.</p></div></div>
+                            <div class="endpoint"><span class="method put">PUT</span><div><code>/work-schedule/roster/cell</code><p>Set or clear one staff member's shift for one date.</p></div></div>
+                            <div class="endpoint"><span class="method put">PUT</span><div><code>/work-schedule/roster/staff/{user}</code><p>Edit an existing staff member's <code class="inline-code">staff_id</code>/<code class="inline-code">position</code>/<code class="inline-code">group</code> inline from the roster.</p></div></div>
+                            <div class="endpoint"><span class="method delete">DELETE</span><div><code>/work-schedule/roster/staff/{user}?from=2026-06-26&amp;to=2026-07-25</code><p>Clear one staff member's shifts across a date range. Returns <code class="inline-code">204</code>.</p></div></div>
+                        </div>
+
+                        <div class="table-wrap" aria-label="Roster request fields">
+                            <table>
+                                <thead>
+                                    <tr><th>Endpoint</th><th>Field</th><th>Description</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td><code>GET roster</code></td><td><code>from</code>, <code>to</code></td><td>Optional explicit range; if either is given, both are required and must be at most 62 days apart.</td></tr>
+                                    <tr><td><code>GET roster</code></td><td><code>date</code></td><td>Optional. Used only when <code>from</code>/<code>to</code> are omitted, to pick which monthly cycle to return. Defaults to today.</td></tr>
+                                    <tr><td><code>PUT roster/cell</code></td><td><code>user_id</code></td><td>Required. Any existing user id.</td></tr>
+                                    <tr><td><code>PUT roster/cell</code></td><td><code>work_date</code></td><td>Required. <code>YYYY-MM-DD</code>.</td></tr>
+                                    <tr><td><code>PUT roster/cell</code></td><td><code>work_shift_template_id</code></td><td>Optional. An existing shift template id, or omit/null to clear that day.</td></tr>
+                                    <tr><td><code>PUT roster/staff/{user}</code></td><td><code>staff_id</code>, <code>position</code>, <code>group</code></td><td>All optional/nullable. <code>staff_id</code> must stay unique across users.</td></tr>
+                                    <tr><td><code>GET roster/export</code></td><td><code>period</code>, <code>date</code></td><td><code>period</code> is <code>week</code> or <code>month</code> (default <code>month</code>); <code>date</code> picks which week/month (default today).</td></tr>
+                                    <tr><td><code>POST roster/import</code></td><td><code>file</code></td><td>Required CSV, max 5120 KB. Header row: <code>ID, Group, Name, Position</code> then one <code>YYYY-MM-DD</code> column per date; each data cell holds a shift code or is left blank.</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </section>
 
@@ -1008,6 +1050,110 @@ php artisan db:seed --class=BuddhistEventSeeder</code></pre>
       null, null, null, null, null, null, null, null
     ]
   }'</code></pre>
+
+                        <h3>Register with a staff profile</h3>
+                        <pre><code>curl -X POST "{{ $baseUrl }}/auth/register" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d '{
+    "name": "Sophal Nurse",
+    "email": "sophal@example.com",
+    "password": "password123",
+    "device_name": "roster-add-staff",
+    "staff_id": "AKM045",
+    "position": "Staff Nurse",
+    "group": "ICU"
+  }'</code></pre>
+                        <pre><code>{
+  "data": {
+    "user": {
+      "name": "Sophal Nurse",
+      "email": "sophal@example.com",
+      "staff_id": "AKM045",
+      "position": "Staff Nurse",
+      "group": "ICU",
+      "updated_at": "2026-07-22T00:00:00.000000Z",
+      "created_at": "2026-07-22T00:00:00.000000Z",
+      "id": 45
+    },
+    "token": "plain-text-token-returned-once"
+  }
+}</code></pre>
+
+                        <h3>Read the team roster</h3>
+                        <pre><code>curl "{{ $baseUrl }}/work-schedule/roster?from=2026-07-10&amp;to=2026-07-16" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer &lt;token&gt;"</code></pre>
+                        <pre><code>{
+  "data": {
+    "from": "2026-07-10",
+    "to": "2026-07-16",
+    "codes": [
+      { "id": 1, "code": "12", "name": "Day", "category": "shift", "color": "blue", "start_time": "07:30", "end_time": "19:30", "sort_order": 0, "is_overnight": false },
+      { "id": 2, "code": "12N", "name": "Night", "category": "shift", "color": "blue", "start_time": "19:30", "end_time": "07:30", "sort_order": 1, "is_overnight": true }
+    ],
+    "weeks": [
+      {
+        "label": "Week 1",
+        "from": "2026-07-10",
+        "to": "2026-07-16",
+        "dates": ["2026-07-10", "2026-07-11", "2026-07-12", "2026-07-13", "2026-07-14", "2026-07-15", "2026-07-16"]
+      }
+    ],
+    "staff": [
+      {
+        "id": 12,
+        "name": "Sophal Nurse",
+        "email": "sophal@example.com",
+        "staff_id": "AKM045",
+        "position": "Staff Nurse",
+        "group": "ICU",
+        "entries": {
+          "2026-07-10": { "id": 1, "code": "12", "name": "Day", "category": "shift", "color": "blue", "start_time": "07:30", "end_time": "19:30", "sort_order": 0, "is_overnight": false }
+        }
+      }
+    ]
+  }
+}</code></pre>
+                        <p>
+                            Omit both <code class="inline-code">from</code> and <code class="inline-code">to</code> to get the current 26th-to-25th cycle instead, split into up to four <code class="inline-code">weeks</code> entries.
+                        </p>
+
+                        <h3>Who's working today</h3>
+                        <pre><code>curl "{{ $baseUrl }}/work-schedule/today?date=2026-07-10" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer &lt;token&gt;"</code></pre>
+                        <pre><code>{
+  "data": {
+    "date": "2026-07-10",
+    "shifts": [
+      {
+        "shift_template": { "id": 1, "code": "12", "name": "Day", "category": "shift", "color": "blue", "start_time": "07:30", "end_time": "19:30", "sort_order": 0, "is_overnight": false },
+        "staff": [
+          { "id": 12, "name": "Sophal Nurse", "staff_id": "AKM045", "position": "Staff Nurse", "group": "ICU" }
+        ]
+      }
+    ]
+  }
+}</code></pre>
+
+                        <h3>Roster import with row-level errors</h3>
+                        <p>
+                            Importing a CSV never fails the whole request just because some rows are bad — unmatched staff IDs or shift codes are collected per line while every other valid cell still gets imported.
+                        </p>
+                        <pre><code>curl -X POST "{{ $baseUrl }}/work-schedule/roster/import" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -F "file=@roster.csv"</code></pre>
+                        <pre><code>{
+  "data": {
+    "imported": 5,
+    "errors": [
+      "Line 3: unknown staff ID [AKM999].",
+      "Line 4: unknown shift code [XX] for 2026-07-10."
+    ]
+  }
+}</code></pre>
                     </section>
 
                     <section class="section" id="errors" aria-labelledby="errors-title">
@@ -1037,6 +1183,11 @@ php artisan db:seed --class=BuddhistEventSeeder</code></pre>
                         <h3>Record isolation behavior</h3>
                         <p>
                             When a token tries to access another user's note, event, holiday event, or work schedule data, the API returns <code class="inline-code">404 Not Found</code>. This avoids exposing whether a private record exists.
+                        </p>
+
+                        <h3>Roster-specific validation</h3>
+                        <p>
+                            <code class="inline-code">GET /work-schedule/roster</code> and cycle endpoints return <code class="inline-code">422</code> when a range exceeds 62 days or a cycle start date isn't the 26th. <code class="inline-code">POST /work-schedule/roster/import</code> returns <code class="inline-code">422</code> only for a structurally broken file (wrong header columns, or a header that isn't a <code class="inline-code">YYYY-MM-DD</code> date) — an unknown <code class="inline-code">staff_id</code> or shift code inside an otherwise valid file does <em>not</em> fail the request; those rows/cells are skipped and reported per line in the <code class="inline-code">201</code> response's <code class="inline-code">data.errors</code> array instead, alongside the rows that did import (see the example above).
                         </p>
                     </section>
 
