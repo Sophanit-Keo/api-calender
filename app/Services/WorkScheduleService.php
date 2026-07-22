@@ -31,8 +31,8 @@ class WorkScheduleService
             ],
             'shift_templates' => WorkShiftTemplate::query()
                 ->where('user_id', $userId)
-                ->orderBy('sort_order')
-                ->orderBy('id')
+                ->orderBy('sort_order', 'asc')
+                ->orderBy('id', 'asc')
                 ->get()
                 ->map(fn (WorkShiftTemplate $shift): array => $this->formatShiftTemplate($shift))
                 ->values(),
@@ -254,8 +254,8 @@ class WorkScheduleService
     {
         return WorkShiftTemplate::query()
             ->whereNull('user_id')
-            ->orderBy('sort_order')
-            ->orderBy('id')
+            ->orderBy('sort_order', 'asc')
+            ->orderBy('id', 'asc')
             ->get()
             ->map(fn (WorkShiftTemplate $shift): array => $this->formatShiftTemplate($shift))
             ->values()
@@ -288,8 +288,8 @@ class WorkScheduleService
         $staff = User::query()
             ->select(['id', 'name', 'email', 'staff_id', 'position'])
             ->orderByRaw('staff_id IS NULL')
-            ->orderBy('staff_id')
-            ->orderBy('name')
+            ->orderBy('staff_id', 'asc')
+            ->orderBy('name', 'asc')
             ->get()
             ->map(function (User $user) use ($days): array {
                 $cells = [];
@@ -357,7 +357,7 @@ class WorkScheduleService
     {
         WorkScheduleDay::query()
             ->where('user_id', $userId)
-            ->whereBetween('work_date', [$this->date($from)->toDateString(), $this->date($to)->toDateString()])
+            ->whereBetween('work_date', [$this->date($from)->toDateString(), $this->date($to)->toDateString()], 'and')
             ->delete();
     }
 
