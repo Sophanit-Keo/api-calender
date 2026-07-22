@@ -42,8 +42,12 @@ Route::prefix('v1')->group(function (): void {
         Route::put('work-schedule/cycles/{cycle_start_date}', [WorkScheduleController::class, 'updateCycle']);
         Route::get('work-schedule/days', [WorkScheduleController::class, 'days']);
 
+        Route::get('work-schedule/today', [WorkScheduleController::class, 'today']);
         Route::get('work-schedule/roster', [WorkScheduleController::class, 'roster']);
+        Route::get('work-schedule/roster/export', [WorkScheduleController::class, 'exportRoster']);
+        Route::post('work-schedule/roster/import', [WorkScheduleController::class, 'importRoster']);
         Route::put('work-schedule/roster/cell', [WorkScheduleController::class, 'updateRosterCell']);
+        Route::put('work-schedule/roster/staff/{user}', [WorkScheduleController::class, 'updateRosterStaff']);
         Route::delete('work-schedule/roster/staff/{user}', [WorkScheduleController::class, 'clearRosterStaff']);
     });
 });
