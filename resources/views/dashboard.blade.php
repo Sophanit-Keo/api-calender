@@ -104,7 +104,7 @@
                     <div class="sheet-meta">
                         <p><strong>Team roster</strong><span id="roster-count">0 staff</span></p>
                         <div class="roster-toolbar">
-                            <div class="calendar-nav"><button id="roster-previous-week" class="icon-button" aria-label="Previous week">‹</button><button id="roster-today" class="button button-secondary button-small">This week</button><button id="roster-next-week" class="icon-button" aria-label="Next week">›</button><h2 id="roster-range-label"></h2></div>
+                            <div class="calendar-nav"><button id="roster-previous-week" class="icon-button" aria-label="Previous month">‹</button><button id="roster-today" class="button button-secondary button-small">This month</button><button id="roster-next-week" class="icon-button" aria-label="Next month">›</button><h2 id="roster-range-label"></h2></div>
                             <button id="add-staff-button" class="button button-primary button-small">＋ Add staff</button>
                         </div>
                     </div>
