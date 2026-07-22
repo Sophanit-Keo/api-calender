@@ -89,7 +89,7 @@ function option(value, label, selectedValue) {
 function rosterCellOptions(cell) {
     const globalOptions = state.roster.codes.map((code) => option(code.id, code.code, cell?.id)).join('');
     const isGlobal = cell ? state.roster.codes.some((code) => code.id === cell.id) : true;
-    const personalOption = cell && !isGlobal ? option(cell.id, `${cell.code} (personal)`, cell.id) : '';
+    const personalOption = cell && !isGlobal ? option(cell.id, cell.code, cell.id) : '';
     return '<option value="">—</option>' + globalOptions + personalOption;
 }
 
